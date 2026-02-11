@@ -17,6 +17,14 @@ export const metadata: Metadata = {
   title: "LogiMap - Gestión de Distribuidora",
   description: "Plataforma de gestión para distribuidores: pedidos, rutas, inventario y finanzas",
   keywords: ["distribución", "logística", "pedidos", "inventario", " Colombia"],
+  manifest: "/manifest.json",
+  themeColor: "#2563eb",
+  viewport: {
+    width: "device-width",
+    initialScale: 1,
+    maximumScale: 1,
+    userScalable: false,
+  },
 };
 
 export default function RootLayout({
