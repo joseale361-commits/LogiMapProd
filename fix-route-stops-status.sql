@@ -1,4 +1,5 @@
 -- Fix route_stops status check constraint
+a -- Fix route_stops status check constraint
 -- Run this in Supabase SQL Editor
 
 -- Step 1: Drop the existing check constraint
