@@ -74,21 +74,12 @@ export async function POST(
     try {
         const { slug } = await params;
         const body = await request.json();
-        const { name, email, role } = body;
+        const { name, email } = body;
 
         // Validate input
-        if (!name || !email || !role) {
+        if (!name || !email) {
             return NextResponse.json(
                 { success: false, error: 'Faltan campos requeridos' },
-                { status: 400 }
-            );
-        }
-
-        // Validate role
-        const validRoles = ['driver', 'admin', 'warehouse'];
-        if (!validRoles.includes(role)) {
-            return NextResponse.json(
-                { success: false, error: 'Rol inválido' },
                 { status: 400 }
             );
         }
@@ -171,7 +162,7 @@ export async function POST(
             .insert({
                 user_id: authData.user.id,
                 distributor_id: distributor.id,
-                role,
+                role: 'staff',
                 is_active: true,
                 hire_date: new Date().toISOString(),
             });
@@ -194,7 +185,7 @@ export async function POST(
                 id: authData.user.id,
                 full_name: name,
                 email,
-                role,
+                role: 'staff',
                 tempPassword, // Only for testing, remove in production
             },
         });

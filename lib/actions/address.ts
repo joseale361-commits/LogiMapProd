@@ -21,7 +21,7 @@ export interface AddressActionInput {
 /**
  * Create or update an address
  */
-export async function saveAddressAction(input: AddressActionInput) {
+export async function saveAddressAction(input: AddressActionInput, customerId?: string) {
     const supabase = await createClient();
 
     // Get current user
@@ -68,8 +68,15 @@ export async function saveAddressAction(input: AddressActionInput) {
             return { success: false, error: result.error.message };
         }
 
+        // Revalidate customer profile page to show the new address
+        if (customerId) {
+            revalidatePath(`/dashboard/customers/${customerId}`);
+            revalidatePath('/dashboard/customers');
+        }
+
+        // Also revalidate shop profile and checkout
         revalidatePath('/shop/profile');
-        revalidatePath('/checkout'); // Revalidate checkout just in case
+        revalidatePath('/checkout');
 
         return { success: true };
     } catch (error) {

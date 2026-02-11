@@ -20,7 +20,7 @@ export async function POST(
         const body = await request.json();
         const { status, failureReason } = body;
 
-        if (!status || !['delivered', 'failed'].includes(status)) {
+        if (!status || !['delivered', 'completed', 'failed'].includes(status)) {
             return NextResponse.json({ error: 'Invalid status' }, { status: 400 });
         }
 
@@ -57,7 +57,7 @@ export async function POST(
             actual_departure_time: new Date().toISOString(),
         };
 
-        if (status === 'delivered') {
+        if (status === 'delivered' || status === 'completed') {
             updateData.delivered_at = new Date().toISOString();
             updateData.delivered_by = user.id;
         } else if (status === 'failed') {
@@ -73,6 +73,30 @@ export async function POST(
         if (updateError) {
             console.error('Error updating stop:', updateError);
             return NextResponse.json({ error: 'Failed to update stop' }, { status: 500 });
+        }
+
+        // Update order status if this stop has an order
+        if (stopId) {
+            const { data: stopData } = await supabase
+                .from('route_stops')
+                .select('order_id')
+                .eq('id', stopId)
+                .single();
+
+            if (stopData?.order_id) {
+                const orderUpdate: any = { status };
+                if (status === 'delivered' || status === 'completed') {
+                    orderUpdate.delivered_at = new Date().toISOString();
+                } else if (status === 'failed') {
+                    orderUpdate.failed_at = new Date().toISOString();
+                    orderUpdate.failure_reason = failureReason || null;
+                }
+
+                await supabase
+                    .from('orders')
+                    .update(orderUpdate)
+                    .eq('id', stopData.order_id);
+            }
         }
 
         return NextResponse.json({ success: true });

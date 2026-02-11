@@ -1,5 +1,5 @@
 import { redirect, notFound } from 'next/navigation';
-import { Home, Package, Route, Users, Settings, FolderTree, ShoppingBag, ExternalLink, LogOut } from 'lucide-react';
+import { Home, Package, Route, Users, Settings, FolderTree, ShoppingBag, ExternalLink, LogOut, DollarSign, Users2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import {
@@ -51,12 +51,16 @@ export default async function DashboardLayout({ children, params }: LayoutProps)
 
   const menuItems = [
     { icon: Home, label: 'Dashboard', href: `/dashboard/${slug}` },
+    ...(userRole === 'admin' ? [{ icon: Users2, label: 'Clientes CRM', href: `/dashboard/${slug}/customers` }] : []),
     { icon: Package, label: 'Productos', href: `/dashboard/${slug}/products` },
     { icon: FolderTree, label: 'Categorías', href: `/dashboard/${slug}/categories` },
     { icon: ShoppingBag, label: 'Pedidos', href: `/dashboard/${slug}/orders` },
+    ...(userRole === 'admin' ? [{ icon: DollarSign, label: 'Finanzas', href: `/dashboard/${slug}/finance` }] : []),
     { icon: Route, label: 'Rutas', href: `/dashboard/${slug}/routes` },
-    { icon: Users, label: 'Equipo', href: `/dashboard/${slug}/team` },
-    { icon: Settings, label: 'Configuración', href: `/dashboard/${slug}/settings` },
+    ...(userRole === 'admin' ? [
+      { icon: Users, label: 'Equipo', href: `/dashboard/${slug}/team` },
+      { icon: Settings, label: 'Configuración', href: `/dashboard/${slug}/settings` },
+    ] : []),
   ];
 
   return (
@@ -90,6 +94,15 @@ export default async function DashboardLayout({ children, params }: LayoutProps)
             <ExternalLink className="w-5 h-5" />
             <span className="font-medium">Ver mi Tienda Online</span>
           </Link>
+
+          {/* Modo Conductor Button */}
+          <Link
+            href="/delivery/routes"
+            className="flex items-center gap-3 px-4 py-3 text-green-700 bg-green-50 rounded-lg hover:bg-green-100 transition-colors"
+          >
+            <ExternalLink className="w-5 h-5" />
+            <span className="font-medium">📱 Modo Conductor</span>
+          </Link>
         </nav>
 
         <div className="p-4 border-t border-gray-200 space-y-3">
@@ -121,6 +134,7 @@ export default async function DashboardLayout({ children, params }: LayoutProps)
         distributorName={distributor.name}
         userEmail={user.email || ''}
         slug={slug}
+        userRole={userRole}
       />
 
       {/* Main Content */}

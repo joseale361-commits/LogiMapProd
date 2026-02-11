@@ -12,11 +12,11 @@ export interface CustomerAddress {
     street_address: string;
     city: string;
     state: string | null;
-    country: string;
+    country: string | null;
     postal_code: string | null;
     additional_info: string | null;
     delivery_instructions: string | null;
-    is_default: boolean;
+    is_default: boolean | null;
     lat: number | null;
     lng: number | null;
 }
@@ -50,13 +50,42 @@ export async function getCustomerProfile(userId: string): Promise<CustomerProfil
 }
 
 /**
- * Get customer addresses
- * FIXME: 'addresses' table is missing in the new schema. 
- * Addresses are now likely stored as strings in main tables.
+ * Get customer addresses from the addresses table
  */
 export async function getCustomerAddresses(userId: string): Promise<CustomerAddress[]> {
-    // Current schema doesn't have a separate addresses table.
-    return [];
+    const supabase = await createClient();
+
+    console.log('[getCustomerAddresses] Fetching addresses for userId:', userId);
+
+    const { data, error } = await supabase
+        .from('addresses')
+        .select('id, label, street_address, city, state, country, postal_code, additional_info, delivery_instructions, is_default')
+        .eq('user_id', userId)
+        .eq('is_active', true)
+        .order('is_default', { ascending: false })
+        .order('created_at', { ascending: false });
+
+    if (error) {
+        console.error('[getCustomerAddresses] Error fetching addresses:', error.message);
+        return [];
+    }
+
+    console.log('[getCustomerAddresses] Found addresses:', data?.length || 0, data);
+
+    return (data || []).map(addr => ({
+        id: addr.id,
+        label: addr.label,
+        street_address: addr.street_address,
+        city: addr.city,
+        state: addr.state,
+        country: addr.country,
+        postal_code: addr.postal_code,
+        additional_info: addr.additional_info,
+        delivery_instructions: addr.delivery_instructions,
+        is_default: addr.is_default,
+        lat: null,
+        lng: null,
+    }));
 }
 
 /**

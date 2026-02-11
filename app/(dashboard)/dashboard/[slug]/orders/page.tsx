@@ -8,7 +8,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
-import { Check, X, MapPin, Clock, User, Package, AlertCircle } from 'lucide-react';
+import { Check, X, MapPin, Clock, User, Package, AlertCircle, Store, MessageCircle } from 'lucide-react';
 import dynamic from 'next/dynamic';
 
 // Dynamically import Leaflet components to avoid SSR issues
@@ -44,6 +44,9 @@ interface Order {
     delivery_location: any;
     requested_delivery_date: string | null;
     requested_delivery_time_slot: string | null;
+    delivery_type: 'delivery' | 'pickup';
+    pickup_time: string | null;
+    payment_method: string;
 }
 
 interface PageProps {
@@ -59,9 +62,12 @@ export default function OrdersPage({ params }: PageProps) {
     const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
     const [showMapDialog, setShowMapDialog] = useState(false);
     const [showRejectDialog, setShowRejectDialog] = useState(false);
+    const [showWhatsAppDialog, setShowWhatsAppDialog] = useState(false);
+    const [whatsAppLink, setWhatsAppLink] = useState('');
     const [rejectReason, setRejectReason] = useState('');
     const [actionLoading, setActionLoading] = useState(false);
     const [notification, setNotification] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+    const [viewFilter, setViewFilter] = useState<'pending' | 'pickup'>('pending');
 
     useEffect(() => {
         params.then(({ slug }) => {
@@ -100,7 +106,17 @@ export default function OrdersPage({ params }: PageProps) {
             const data = await response.json();
 
             if (data.success) {
-                showNotification('success', 'Pedido aprobado exitosamente');
+                // Find the approved order to show WhatsApp notification
+                const approvedOrder = orders.find(o => o.id === orderId);
+                if (approvedOrder && approvedOrder.customer.phone) {
+                    const message = `Hola ${approvedOrder.customer.full_name}, tu pedido #${approvedOrder.order_number} ha sido aprobado y llegará pronto. Total: ${approvedOrder.total_amount.toLocaleString()}`;
+                    const phone = approvedOrder.customer.phone.replace(/\D/g, '');
+                    const waLink = `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
+                    setWhatsAppLink(waLink);
+                    setShowWhatsAppDialog(true);
+                } else {
+                    showNotification('success', 'Pedido aprobado exitosamente');
+                }
                 fetchOrders(slug);
             } else {
                 showNotification('error', data.error || 'Error al aprobar pedido');
@@ -145,6 +161,54 @@ export default function OrdersPage({ params }: PageProps) {
         }
     };
 
+    const handleMarkReady = async (orderId: string) => {
+        try {
+            setActionLoading(true);
+            const response = await fetch(`/api/dashboard/${slug}/orders/ready`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ orderId }),
+            });
+            const data = await response.json();
+
+            if (data.success) {
+                showNotification('success', 'Pedido marcado como listo para retirar');
+                fetchOrders(slug);
+            } else {
+                showNotification('error', data.error || 'Error al marcar pedido como listo');
+            }
+        } catch (error) {
+            console.error('Error marking as ready:', error);
+            showNotification('error', 'Error al marcar pedido como listo');
+        } finally {
+            setActionLoading(false);
+        }
+    };
+
+    const handleMarkDelivered = async (orderId: string) => {
+        try {
+            setActionLoading(true);
+            const response = await fetch(`/api/dashboard/${slug}/orders/deliver`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ orderId }),
+            });
+            const data = await response.json();
+
+            if (data.success) {
+                showNotification('success', 'Pedido marcado como entregado');
+                fetchOrders(slug);
+            } else {
+                showNotification('error', data.error || 'Error al marcar pedido como entregado');
+            }
+        } catch (error) {
+            console.error('Error marking as delivered:', error);
+            showNotification('error', 'Error al marcar pedido como entregado');
+        } finally {
+            setActionLoading(false);
+        }
+    };
+
     const showNotification = (type: 'success' | 'error', message: string) => {
         setNotification({ type, message });
         setTimeout(() => setNotification(null), 3000);
@@ -183,6 +247,14 @@ export default function OrdersPage({ params }: PageProps) {
         return null;
     };
 
+    const filteredOrders = orders.filter(order => {
+        if (viewFilter === 'pending') {
+            return order.status === 'pending_approval';
+        } else {
+            return order.delivery_type === 'pickup' && order.status === 'approved';
+        }
+    });
+
     return (
         <div className="space-y-6">
             {/* Header */}
@@ -193,9 +265,30 @@ export default function OrdersPage({ params }: PageProps) {
                         Gestiona los pedidos que requieren aprobación
                     </p>
                 </div>
-                <Badge variant="outline" className="text-lg px-4 py-2">
-                    {orders.length} pedidos
-                </Badge>
+                <div className="flex gap-2">
+                    <Button
+                        variant={viewFilter === 'pending' ? 'default' : 'outline'}
+                        onClick={() => setViewFilter('pending')}
+                        className="gap-2"
+                    >
+                        <AlertCircle className="w-4 h-4" />
+                        Pendientes
+                        <Badge variant="secondary" className="ml-1 bg-white/20">
+                            {orders.filter(o => o.status === 'pending_approval').length}
+                        </Badge>
+                    </Button>
+                    <Button
+                        variant={viewFilter === 'pickup' ? 'default' : 'outline'}
+                        onClick={() => setViewFilter('pickup')}
+                        className="gap-2"
+                    >
+                        <Store className="w-4 h-4" />
+                        🏪 Retiro en Bodega
+                        <Badge variant="secondary" className="ml-1 bg-white/20">
+                            {orders.filter(o => o.delivery_type === 'pickup' && o.status === 'approved').length}
+                        </Badge>
+                    </Button>
+                </div>
             </div>
 
             {/* Notification */}
@@ -228,11 +321,11 @@ export default function OrdersPage({ params }: PageProps) {
                         <div className="flex items-center justify-center py-12">
                             <div className="text-gray-500">Cargando pedidos...</div>
                         </div>
-                    ) : orders.length === 0 ? (
+                    ) : filteredOrders.length === 0 ? (
                         <div className="flex flex-col items-center justify-center py-12 text-gray-500">
                             <Package className="w-16 h-16 mb-4 text-gray-300" />
-                            <p className="text-lg font-medium">No hay pedidos pendientes</p>
-                            <p className="text-sm mt-1">Los pedidos nuevos aparecerán aquí</p>
+                            <p className="text-lg font-medium">No hay pedidos en esta sección</p>
+                            <p className="text-sm mt-1">Los pedidos aparecerán aquí según su tipo y estado</p>
                         </div>
                     ) : (
                         <div className="overflow-x-auto">
@@ -242,14 +335,17 @@ export default function OrdersPage({ params }: PageProps) {
                                         <TableHead>Pedido</TableHead>
                                         <TableHead>Cliente</TableHead>
                                         <TableHead>Fecha</TableHead>
-                                        <TableHead>Entrega</TableHead>
+                                        <TableHead>{viewFilter === 'pickup' ? 'Hora de Retiro' : 'Entrega'}</TableHead>
                                         <TableHead>Total</TableHead>
                                         <TableHead className="text-right">Acciones</TableHead>
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
-                                    {orders.map((order) => (
-                                        <TableRow key={order.id}>
+                                    {filteredOrders.map((order) => (
+                                        <TableRow
+                                            key={order.id}
+                                            className={order.delivery_type === 'pickup' ? 'bg-amber-50/30 border-l-4 border-l-amber-400' : ''}
+                                        >
                                             <TableCell>
                                                 <div className="font-medium">{order.order_number}</div>
                                                 <div className="text-sm text-gray-500">{order.id.slice(0, 8)}...</div>
@@ -271,7 +367,25 @@ export default function OrdersPage({ params }: PageProps) {
                                             </TableCell>
                                             <TableCell>
                                                 <div className="text-sm">
-                                                    {order.requested_delivery_date ? (
+                                                    {order.delivery_type === 'pickup' ? (
+                                                        <div className="flex flex-col">
+                                                            <div className="font-bold text-amber-700 flex items-center gap-1">
+                                                                <Store className="w-3 h-3" /> RETIRO EN BODEGA
+                                                            </div>
+                                                            {order.pickup_time ? (
+                                                                <div className="font-medium">
+                                                                    {new Date(order.pickup_time).toLocaleString('es-CO', {
+                                                                        day: 'numeric',
+                                                                        month: 'short',
+                                                                        hour: '2-digit',
+                                                                        minute: '2-digit'
+                                                                    })}
+                                                                </div>
+                                                            ) : (
+                                                                <span className="text-gray-500">Hora no definida</span>
+                                                            )}
+                                                        </div>
+                                                    ) : order.requested_delivery_date ? (
                                                         <div>
                                                             <div className="font-medium">
                                                                 {new Date(order.requested_delivery_date).toLocaleDateString('es-CO')}
@@ -290,36 +404,63 @@ export default function OrdersPage({ params }: PageProps) {
                                             </TableCell>
                                             <TableCell className="text-right">
                                                 <div className="flex items-center justify-end gap-2">
-                                                    <Button
-                                                        variant="ghost"
-                                                        size="sm"
-                                                        onClick={() => {
-                                                            setSelectedOrder(order);
-                                                            setShowMapDialog(true);
-                                                        }}
-                                                        disabled={!order.delivery_location}
-                                                    >
-                                                        <MapPin className="w-4 h-4" />
-                                                    </Button>
-                                                    <Button
-                                                        variant="outline"
-                                                        size="sm"
-                                                        onClick={() => {
-                                                            setSelectedOrder(order);
-                                                            setShowRejectDialog(true);
-                                                        }}
-                                                        disabled={actionLoading}
-                                                    >
-                                                        <X className="w-4 h-4" />
-                                                    </Button>
-                                                    <Button
-                                                        variant="default"
-                                                        size="sm"
-                                                        onClick={() => handleApprove(order.id)}
-                                                        disabled={actionLoading}
-                                                    >
-                                                        <Check className="w-4 h-4" />
-                                                    </Button>
+                                                    {viewFilter === 'pending' ? (
+                                                        <>
+                                                            <Button
+                                                                variant="ghost"
+                                                                size="sm"
+                                                                onClick={() => {
+                                                                    setSelectedOrder(order);
+                                                                    setShowMapDialog(true);
+                                                                }}
+                                                                disabled={!order.delivery_location}
+                                                                title="Ver en mapa"
+                                                            >
+                                                                <MapPin className="w-4 h-4" />
+                                                            </Button>
+                                                            <Button
+                                                                variant="outline"
+                                                                size="sm"
+                                                                onClick={() => {
+                                                                    setSelectedOrder(order);
+                                                                    setShowRejectDialog(true);
+                                                                }}
+                                                                disabled={actionLoading}
+                                                                title="Rechazar"
+                                                            >
+                                                                <X className="w-4 h-4" />
+                                                            </Button>
+                                                            <Button
+                                                                variant="default"
+                                                                size="sm"
+                                                                onClick={() => {
+                                                                    if (order.delivery_type === 'pickup') {
+                                                                        handleMarkReady(order.id);
+                                                                    } else {
+                                                                        handleApprove(order.id);
+                                                                    }
+                                                                }}
+                                                                disabled={actionLoading}
+                                                                title={order.delivery_type === 'pickup' ? "Marcar como Listo para Retirar" : "Aprobar"}
+                                                            >
+                                                                <Check className="w-4 h-4" />
+                                                            </Button>
+                                                        </>
+                                                    ) : (
+                                                        <>
+                                                            {order.status === 'approved' && (
+                                                                <Button
+                                                                    variant="default"
+                                                                    size="sm"
+                                                                    onClick={() => handleMarkDelivered(order.id)}
+                                                                    disabled={actionLoading}
+                                                                    className="bg-green-600 hover:bg-green-700 text-white"
+                                                                >
+                                                                    Entregado en Mostrador
+                                                                </Button>
+                                                            )}
+                                                        </>
+                                                    )}
                                                 </div>
                                             </TableCell>
                                         </TableRow>
@@ -421,6 +562,52 @@ export default function OrdersPage({ params }: PageProps) {
                             disabled={actionLoading}
                         >
                             {actionLoading ? 'Rechazando...' : 'Rechazar Pedido'}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            {/* WhatsApp Notification Dialog */}
+            <Dialog open={showWhatsAppDialog} onOpenChange={setShowWhatsAppDialog}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle className="flex items-center gap-2">
+                            <MessageCircle className="w-5 h-5 text-green-600" />
+                            Notificar al Cliente por WhatsApp
+                        </DialogTitle>
+                    </DialogHeader>
+                    <div className="space-y-4">
+                        <p className="text-sm text-gray-600">
+                            El pedido ha sido aprobado. ¿Deseas notificar al cliente ahora?
+                        </p>
+                        <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                            <p className="text-sm text-green-800 font-medium">
+                                Mensaje pre-llenado:
+                            </p>
+                            <p className="text-sm text-gray-700 mt-1">
+                                {whatsAppLink ? decodeURIComponent(whatsAppLink.split('?text=')[1] || '') : ''}
+                            </p>
+                        </div>
+                    </div>
+                    <DialogFooter>
+                        <Button
+                            variant="outline"
+                            onClick={() => setShowWhatsAppDialog(false)}
+                        >
+                            Ahora no
+                        </Button>
+                        <Button
+                            asChild
+                            className="bg-green-600 hover:bg-green-700"
+                        >
+                            <a
+                                href={whatsAppLink}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                            >
+                                <MessageCircle className="w-4 h-4 mr-2" />
+                                Abrir WhatsApp
+                            </a>
                         </Button>
                     </DialogFooter>
                 </DialogContent>

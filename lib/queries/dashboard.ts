@@ -209,3 +209,64 @@ export async function rejectOrder(
         return { success: false, error: 'Unexpected error occurred' };
     }
 }
+
+/**
+ * Marks a pickup order as ready for pickup.
+ */
+export async function markOrderAsReadyForPickup(
+    orderId: string,
+    userId: string
+): Promise<{ success: boolean; error?: string; order?: any }> {
+    try {
+        const { data, error } = await adminClient
+            .from('orders')
+            .update({
+                status: 'approved',
+                updated_at: new Date().toISOString()
+            })
+            .eq('id', orderId)
+            .select()
+            .single();
+
+        if (error) {
+            console.error('[Dashboard] Error marking order as ready:', error.message);
+            return { success: false, error: error.message };
+        }
+
+        return { success: true, order: data };
+    } catch (err) {
+        console.error('[Dashboard] Unexpected error in markOrderAsReadyForPickup:', err);
+        return { success: false, error: 'Unexpected error occurred' };
+    }
+}
+
+/**
+ * Marks a pickup order as delivered.
+ */
+export async function markOrderAsDelivered(
+    orderId: string,
+    userId: string
+): Promise<{ success: boolean; error?: string; order?: any }> {
+    try {
+        const { data, error } = await adminClient
+            .from('orders')
+            .update({
+                status: 'delivered',
+                delivered_at: new Date().toISOString(),
+                updated_at: new Date().toISOString()
+            })
+            .eq('id', orderId)
+            .select()
+            .single();
+
+        if (error) {
+            console.error('[Dashboard] Error marking order as delivered:', error.message);
+            return { success: false, error: error.message };
+        }
+
+        return { success: true, order: data };
+    } catch (err) {
+        console.error('[Dashboard] Unexpected error in markOrderAsDelivered:', err);
+        return { success: false, error: 'Unexpected error occurred' };
+    }
+}

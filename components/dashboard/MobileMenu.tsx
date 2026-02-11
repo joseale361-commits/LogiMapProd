@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Home, Package, Route, Users, Settings, X, FolderTree, ShoppingBag, ExternalLink, LogOut } from 'lucide-react';
+import { Home, Package, Route, Users, Settings, X, FolderTree, ShoppingBag, ExternalLink, LogOut, DollarSign, Users2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { signOutAction } from '@/lib/actions/auth';
@@ -10,19 +10,24 @@ interface MobileMenuProps {
     distributorName: string;
     userEmail: string;
     slug: string;
+    userRole?: string;
 }
 
-export function MobileMenu({ distributorName, userEmail, slug }: MobileMenuProps) {
+export function MobileMenu({ distributorName, userEmail, slug, userRole }: MobileMenuProps) {
     const [isOpen, setIsOpen] = useState(false);
 
     const menuItems = [
         { icon: Home, label: 'Dashboard', href: `/dashboard/${slug}` },
+        ...(userRole === 'admin' ? [{ icon: Users2, label: 'Clientes CRM', href: `/dashboard/${slug}/customers` }] : []),
         { icon: Package, label: 'Productos', href: `/dashboard/${slug}/products` },
         { icon: FolderTree, label: 'Categorías', href: `/dashboard/${slug}/categories` },
         { icon: ShoppingBag, label: 'Pedidos', href: `/dashboard/${slug}/orders` },
+        ...(userRole === 'admin' ? [{ icon: DollarSign, label: 'Finanzas', href: `/dashboard/${slug}/finance` }] : []),
         { icon: Route, label: 'Rutas', href: `/dashboard/${slug}/routes` },
-        { icon: Users, label: 'Equipo', href: `/dashboard/${slug}/team` },
-        { icon: Settings, label: 'Configuración', href: `/dashboard/${slug}/settings` },
+        ...(userRole === 'admin' ? [
+            { icon: Users, label: 'Equipo', href: `/dashboard/${slug}/team` },
+            { icon: Settings, label: 'Configuración', href: `/dashboard/${slug}/settings` },
+        ] : []),
     ];
 
     return (
@@ -75,6 +80,16 @@ export function MobileMenu({ distributorName, userEmail, slug }: MobileMenuProps
                             >
                                 <ExternalLink className="w-5 h-5" />
                                 <span className="font-medium">Ver mi Tienda Online</span>
+                            </Link>
+
+                            {/* Modo Conductor Button - Mobile */}
+                            <Link
+                                href="/delivery/routes"
+                                onClick={() => setIsOpen(false)}
+                                className="flex items-center gap-3 px-4 py-3 text-green-700 bg-green-50 rounded-lg hover:bg-green-100 transition-colors"
+                            >
+                                <ExternalLink className="w-5 h-5" />
+                                <span className="font-medium">📱 Modo Conductor</span>
                             </Link>
                         </nav>
 

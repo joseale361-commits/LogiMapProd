@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getCurrentUser, getDistributorBySlug } from '@/lib/supabase/server';
-import { createRouteWithStops } from '@/lib/queries/dashboard';
+import { createRouteWithStops } from '@/lib/queries/routes';
 
 export async function POST(
     request: NextRequest,
@@ -36,14 +36,15 @@ export async function POST(
             );
         }
 
-        // Create route
+        // Create route (slug is passed for warehouse location lookup)
         const result = await createRouteWithStops(
             distributor.id,
             driverId,
             user.id,
             orderIds,
             plannedDate,
-            notes
+            notes,
+            slug
         );
 
         return NextResponse.json(result);

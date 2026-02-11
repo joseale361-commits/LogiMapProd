@@ -7,7 +7,6 @@ import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Users, Plus, Mail, Phone, Calendar, Shield, Trash2, Check, AlertCircle } from 'lucide-react';
 
 interface TeamMember {
@@ -37,12 +36,14 @@ const roleLabels: Record<string, string> = {
     driver: 'Chofer',
     admin: 'Administrador',
     warehouse: 'Almacén',
+    staff: 'Personal',
 };
 
 const roleColors: Record<string, string> = {
     driver: 'bg-blue-100 text-blue-800',
     admin: 'bg-purple-100 text-purple-800',
     warehouse: 'bg-green-100 text-green-800',
+    staff: 'bg-gray-100 text-gray-800',
 };
 
 export default function TeamPage({ params }: PageProps) {
@@ -53,7 +54,6 @@ export default function TeamPage({ params }: PageProps) {
     const [formData, setFormData] = useState({
         name: '',
         email: '',
-        role: 'driver',
     });
     const [submitting, setSubmitting] = useState(false);
     const [notification, setNotification] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
@@ -86,7 +86,7 @@ export default function TeamPage({ params }: PageProps) {
     };
 
     const handleCreateMember = async () => {
-        if (!formData.name || !formData.email || !formData.role) {
+        if (!formData.name || !formData.email) {
             showNotification('error', 'Por favor completa todos los campos');
             return;
         }
@@ -104,7 +104,7 @@ export default function TeamPage({ params }: PageProps) {
                 showNotification('success', `Miembro creado exitosamente`);
                 setTempPassword(data.member.tempPassword || '');
                 setShowCreateDialog(false);
-                setFormData({ name: '', email: '', role: 'driver' });
+                setFormData({ name: '', email: '' });
                 fetchTeamMembers(slug);
             } else {
                 showNotification('error', data.error || 'Error al crear el miembro');
@@ -287,30 +287,14 @@ export default function TeamPage({ params }: PageProps) {
                                 onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                             />
                         </div>
-                        <div className="space-y-2">
-                            <Label htmlFor="role">Rol *</Label>
-                            <Select
-                                value={formData.role}
-                                onValueChange={(value) => setFormData({ ...formData, role: value })}
-                            >
-                                <SelectTrigger id="role">
-                                    <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="driver">Chofer</SelectItem>
-                                    <SelectItem value="admin">Administrador</SelectItem>
-                                    <SelectItem value="warehouse">Almacén</SelectItem>
-                                </SelectContent>
-                            </Select>
-                        </div>
-                        <div className="p-3 bg-blue-50 rounded-lg text-sm text-blue-800">
-                            <p className="font-medium mb-1">Información importante:</p>
-                            <ul className="list-disc list-inside space-y-1 text-blue-700">
-                                <li>Se generará una contraseña temporal</li>
-                                <li>El usuario podrá cambiarla al iniciar sesión</li>
-                                <li>Se enviará un email de confirmación</li>
-                            </ul>
-                        </div>
+                    </div>
+                    <div className="p-3 bg-blue-50 rounded-lg text-sm text-blue-800">
+                        <p className="font-medium mb-1">Información importante:</p>
+                        <ul className="list-disc list-inside space-y-1 text-blue-700">
+                            <li>Se generará una contraseña temporal</li>
+                            <li>El usuario podrá cambiarla al iniciar sesión</li>
+                            <li>Se enviará un email de confirmación</li>
+                        </ul>
                     </div>
                     <DialogFooter>
                         <Button

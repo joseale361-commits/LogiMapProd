@@ -9,6 +9,8 @@ export interface OrderDetail {
     total_amount: number;
     status: string;
     distributor_id: string;
+    delivery_type: string;
+    pickup_time: string | null;
     distributor: {
         name: string;
         phone: string | null;
@@ -31,14 +33,16 @@ export interface OrderDetail {
 export async function getOrderById(orderId: string): Promise<OrderDetail | null> {
     const supabase = await createClient();
 
-    const { data: order, error } = await supabase
-        .from('orders')
+    const { data: order, error } = await (supabase
+        .from('orders') as any)
         .select(`
             id,
             created_at,
             total_amount,
             status,
             distributor_id,
+            delivery_type,
+            pickup_time,
             distributors (
                 name,
                 phone
@@ -69,6 +73,8 @@ export async function getOrderById(orderId: string): Promise<OrderDetail | null>
         total_amount: Number(order.total_amount),
         status: order.status,
         distributor_id: order.distributor_id,
+        delivery_type: order.delivery_type,
+        pickup_time: order.pickup_time,
         distributor: {
             name: order.distributors?.name || 'Tienda desconocida',
             phone: order.distributors?.phone,

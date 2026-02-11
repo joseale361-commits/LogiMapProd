@@ -62,6 +62,7 @@ export function ProductCard({ product }: ProductCardProps) {
                 <img
                     src={product.image || '/placeholder.png'}
                     alt={product.name}
+                    loading="lazy"
                     className="w-full h-full object-contain p-4 transition-transform duration-300 group-hover:scale-105"
                 />
 

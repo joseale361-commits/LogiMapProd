@@ -1,11 +1,13 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useForm, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { Plus, Trash2, Loader2 } from 'lucide-react';
+import { Plus, Trash2, Loader2, Camera, UploadCloud } from 'lucide-react';
+import imageCompression from 'browser-image-compression';
+import { uploadProductImage } from '@/lib/actions/products';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -50,6 +52,9 @@ export function ProductForm({ distributorId, distributorSlug, categories }: Prod
     const router = useRouter();
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [previewUrl, setPreviewUrl] = useState<string>('');
+    const [uploadProgress, setUploadProgress] = useState(0);
+    const fileInputRef = useRef<HTMLInputElement>(null);
 
     const {
         register,
@@ -57,6 +62,7 @@ export function ProductForm({ distributorId, distributorSlug, categories }: Prod
         handleSubmit,
         formState: { errors },
         setValue,
+        watch,
     } = useForm<FormData>({
         resolver: zodResolver(formSchema) as any,
         defaultValues: {
@@ -82,6 +88,97 @@ export function ProductForm({ distributorId, distributorSlug, categories }: Prod
         control,
         name: 'variants',
     });
+
+    // Helper function to handle URL input - converts URL to Supabase storage
+    async function handleUrlInput(url: string): Promise<string | null> {
+        if (!url) return null;
+
+        // Check if it's already a Supabase URL (our storage)
+        if (url.includes('supabase.co')) return url;
+
+        try {
+            // Fetch the image from the URL
+            const res = await fetch(url);
+            if (!res.ok) throw new Error('Failed to fetch image');
+
+            const blob = await res.blob();
+
+            // Convert blob to File
+            const fileName = `url-${Date.now()}-${Math.random().toString(36).substring(7)}.webp`;
+            const file = new File([blob], fileName, { type: blob.type || 'image/webp' });
+
+            // Compress the image
+            const options = {
+                maxSizeMB: 1,
+                maxWidthOrHeight: 1024,
+                useWebWorker: true,
+                fileType: 'image/webp'
+            };
+            const compressedFile = await imageCompression(file, options);
+
+            // Upload to Supabase Storage
+            const formData = new FormData();
+            formData.append('file', compressedFile);
+
+            const result = await uploadProductImage(formData, distributorSlug);
+
+            if (result.success && result.url) {
+                return result.url;
+            } else {
+                console.error('Error uploading URL image:', result.error);
+                return null;
+            }
+        } catch (error) {
+            console.error('Error processing URL image:', error);
+            return null;
+        }
+    }
+
+    // Handle file upload with compression
+    const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        try {
+            setUploadProgress(10);
+
+            // Compress Image
+            const options = {
+                maxSizeMB: 1,
+                maxWidthOrHeight: 1024,
+                useWebWorker: true,
+                fileType: 'image/webp'
+            };
+
+            const compressedFile = await imageCompression(file, options);
+            setUploadProgress(40);
+
+            // Preview
+            const reader = new FileReader();
+            reader.onloadend = () => setPreviewUrl(reader.result as string);
+            reader.readAsDataURL(compressedFile);
+
+            // Create FormData for Server Action
+            const data = new FormData();
+            data.append('file', compressedFile);
+
+            // Upload
+            setUploadProgress(60);
+            const result = await uploadProductImage(data, distributorSlug);
+
+            if (result.success && result.url) {
+                setValue('image_url', result.url);
+                setUploadProgress(100);
+            } else {
+                setError('Error uploading image: ' + (result.error || 'Unknown error'));
+                setUploadProgress(0);
+            }
+        } catch (error) {
+            console.error('Image processing error:', error);
+            setError('Error processing image');
+            setUploadProgress(0);
+        }
+    };
 
     const onSubmit = async (data: FormData) => {
         setIsSubmitting(true);
@@ -177,15 +274,81 @@ export function ProductForm({ distributorId, distributorSlug, categories }: Prod
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    {/* Image URL */}
+                    {/* Image Upload */}
                     <div className="space-y-2">
-                        <Label htmlFor="image_url">URL de Imagen</Label>
-                        <Input
-                            id="image_url"
-                            {...register('image_url')}
-                            placeholder="https://example.com/image.jpg"
-                            type="url"
-                        />
+                        <Label>Imagen del Producto</Label>
+                        <div className="flex items-start gap-4">
+                            {/* Image Preview */}
+                            <div
+                                className="relative w-24 h-24 border-2 border-dashed rounded-lg flex items-center justify-center overflow-hidden bg-muted/20 hover:bg-muted/40 transition-colors cursor-pointer"
+                                onClick={() => fileInputRef.current?.click()}
+                            >
+                                {(previewUrl || watch('image_url')) ? (
+                                    <img
+                                        src={previewUrl || watch('image_url')}
+                                        alt="Preview"
+                                        className="w-full h-full object-contain"
+                                    />
+                                ) : (
+                                    <Camera className="w-8 h-8 text-muted-foreground" />
+                                )}
+
+                                <div className="absolute inset-0 bg-black/40 opacity-0 hover:opacity-100 flex items-center justify-center transition-opacity">
+                                    <UploadCloud className="w-6 h-6 text-white" />
+                                </div>
+                            </div>
+
+                            <div className="flex-1 space-y-2">
+                                <input
+                                    type="file"
+                                    ref={fileInputRef}
+                                    className="hidden"
+                                    accept="image/*"
+                                    onChange={handleImageUpload}
+                                />
+
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => fileInputRef.current?.click()}
+                                >
+                                    <UploadCloud className="w-4 h-4 mr-2" />
+                                    Subir Imagen
+                                </Button>
+
+                                <Input
+                                    id="image_url"
+                                    {...register('image_url')}
+                                    placeholder="O pega una URL..."
+                                    type="url"
+                                    className="text-xs"
+                                    onChange={async (e) => {
+                                        const url = e.target.value;
+                                        setValue('image_url', url);
+
+                                        // If it's a valid URL, try to convert to Supabase storage
+                                        if (url && (url.startsWith('http://') || url.startsWith('https://'))) {
+                                            setUploadProgress(10);
+                                            const convertedUrl = await handleUrlInput(url);
+                                            if (convertedUrl) {
+                                                setValue('image_url', convertedUrl);
+                                                setPreviewUrl(convertedUrl);
+                                            }
+                                            setUploadProgress(0);
+                                        } else {
+                                            setPreviewUrl(url);
+                                        }
+                                    }}
+                                />
+
+                                {uploadProgress > 0 && uploadProgress < 100 && (
+                                    <div className="w-full h-1 bg-muted rounded-full overflow-hidden">
+                                        <div className="h-full bg-primary transition-all duration-300" style={{ width: `${uploadProgress}%` }} />
+                                    </div>
+                                )}
+                            </div>
+                        </div>
                     </div>
 
                     {/* Base Price */}

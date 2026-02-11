@@ -4,7 +4,7 @@ import { getOrderById } from '@/lib/queries/orders';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Package, Calendar, MapPin, Truck, Phone, MessageSquare, ArrowLeft, XCircle } from 'lucide-react';
+import { Package, Calendar, MapPin, Truck, Phone, MessageSquare, ArrowLeft, XCircle, Store } from 'lucide-react';
 import Link from 'next/link';
 import { cancelOrderAction } from '@/lib/actions/orders';
 
@@ -49,11 +49,16 @@ export default async function OrderDetailPage({ params }: OrderDetailPageProps) 
         });
     };
 
-    const getStatusConfig = (status: string) => {
+    const getStatusConfig = (status: string, deliveryType?: string) => {
+        const isPickup = deliveryType === 'pickup';
         const statusMap: Record<string, { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline'; icon: any }> = {
             pending_approval: { label: 'Pendiente de Aprobación', variant: 'secondary', icon: Calendar },
-            approved: { label: 'Aprobado', variant: 'default', icon: Truck },
-            shipped: { label: 'En Camino', variant: 'default', icon: Truck },
+            approved: {
+                label: isPickup ? 'Listo para Retirar' : 'Aprobado',
+                variant: 'default',
+                icon: isPickup ? Store : Truck
+            },
+            shipped: { label: isPickup ? 'En Mostrador' : 'En Camino', variant: 'default', icon: Truck },
             delivered: { label: 'Entregado', variant: 'outline', icon: Package },
             cancelled: { label: 'Cancelado', variant: 'destructive', icon: XCircle },
         };
@@ -61,7 +66,7 @@ export default async function OrderDetailPage({ params }: OrderDetailPageProps) 
         return statusMap[status] || { label: status, variant: 'outline', icon: Package };
     };
 
-    const statusConfig = getStatusConfig(order.status);
+    const statusConfig = getStatusConfig(order.status, order.delivery_type);
     const StatusIcon = statusConfig.icon;
 
     // WhatsApp link for support

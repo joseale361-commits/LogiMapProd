@@ -1,20 +1,10 @@
 "use client"
 
-import { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { MapPin, Edit, Plus, Trash2 } from 'lucide-react';
+import { MapPin, Edit, Plus } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
-import dynamic from 'next/dynamic';
-import type { AddressFormData } from '@/components/shop/AddressModal';
-import { saveAddressAction } from '@/lib/actions/address';
-import { toast } from 'sonner';
 import { useRouter } from 'next/navigation';
 
-// Dynamically import AddressModal to avoid SSR issues with Leaflet
-const AddressModal = dynamic(
-    () => import('@/components/shop/AddressModal').then((mod) => mod.AddressModal),
-    { ssr: false }
-);
 
 export interface Address {
     id: string;
@@ -22,11 +12,11 @@ export interface Address {
     street_address: string;
     city: string;
     state: string | null;
-    country: string;
+    country: string | null;
     postal_code: string | null;
     additional_info: string | null;
     delivery_instructions: string | null;
-    is_default: boolean;
+    is_default: boolean | null;
     lat: number | null;
     lng: number | null;
 }
@@ -37,51 +27,16 @@ interface ProfileAddressesProps {
 }
 
 export function ProfileAddresses({ addresses, userId }: ProfileAddressesProps) {
-    const [isModalOpen, setIsModalOpen] = useState(false);
-    const [editingAddress, setEditingAddress] = useState<Partial<AddressFormData> | undefined>(undefined);
     const router = useRouter();
 
     const handleAddClick = () => {
-        setEditingAddress(undefined);
-        setIsModalOpen(true);
+        // Navigate to full-page address form
+        router.push(`/dashboard/customers/${userId}/addresses/new`);
     };
 
     const handleEditClick = (address: Address) => {
-        setEditingAddress({
-            id: address.id,
-            label: address.label || '',
-            street_address: address.street_address,
-            city: address.city,
-            state: address.state || 'CI',
-            postal_code: address.postal_code || '',
-            country: address.country,
-            additional_info: address.additional_info || '',
-            delivery_instructions: address.delivery_instructions || '',
-            lat: address.lat || 4.7110,
-            lng: address.lng || -74.0721,
-            is_default: address.is_default,
-        });
-        setIsModalOpen(true);
-    };
-
-    const handleSaveAddress = async (formData: AddressFormData) => {
-        try {
-            const result = await saveAddressAction({
-                ...formData,
-                id: editingAddress?.id
-            });
-
-            if (result.success) {
-                toast.success(editingAddress?.id ? 'Dirección actualizada exitosamente' : 'Dirección creada exitosamente');
-                setIsModalOpen(false);
-                router.refresh();
-            } else {
-                toast.error(result.error || 'Error al guardar la dirección');
-            }
-        } catch (error) {
-            console.error(error);
-            toast.error('Ocurrió un error inesperado');
-        }
+        // Navigate to full-page address form with address data
+        router.push(`/dashboard/customers/${userId}/addresses/new?edit=true&id=${address.id}`);
     };
 
     return (
@@ -132,12 +87,7 @@ export function ProfileAddresses({ addresses, userId }: ProfileAddressesProps) {
                 </div>
             )}
 
-            <AddressModal
-                isOpen={isModalOpen}
-                onClose={() => setIsModalOpen(false)}
-                onSave={handleSaveAddress}
-                initialData={editingAddress}
-            />
+
         </div>
     );
 }

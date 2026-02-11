@@ -34,7 +34,13 @@ export async function GET(
 
         console.log('[API] Routes - Approved Orders Found:', orders.length);
 
-        return NextResponse.json({ success: true, orders });
+        // FORCE NO-CACHE: Add cache control headers
+        const response = NextResponse.json({ success: true, orders });
+        response.headers.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+        response.headers.set('Pragma', 'no-cache');
+        response.headers.set('Expires', '0');
+
+        return response;
     } catch (error) {
         console.error('[API] Error fetching approved orders:', error);
         return NextResponse.json(

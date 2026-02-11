@@ -57,26 +57,17 @@ export default function LoginPage() {
       // The middleware will handle session refresh on the next request
 
       // Redirect based on role
-      const { role, distributorSlug } = data.data;
-      let redirectPath = '';
+      const { distributorSlug, role } = data.data;
 
-      switch (role) {
-        case 'admin':
-          redirectPath = `/dashboard/${distributorSlug}`;
-          break;
-        case 'driver':
-          redirectPath = '/delivery/routes';
-          break;
-        case 'warehouse':
-          redirectPath = `/dashboard/${distributorSlug}/inventory`;
-          break;
-        case 'customer':
-          redirectPath = '/shop';
-          break;
-        default:
-          // Default to customer home if role is unknown
-          redirectPath = '/shop';
-          break;
+      // Handle redirect logic - Staff/Admin go to Dashboard, Customers go to Shop
+      let redirectPath: string;
+
+      if (distributorSlug) {
+        // User is Staff or Admin - redirect to their dashboard
+        redirectPath = `/dashboard/${distributorSlug}`;
+      } else {
+        // User is a Customer - redirect to shop
+        redirectPath = '/shop';
       }
 
       console.log('Redirecting to:', redirectPath);
@@ -162,6 +153,11 @@ export default function LoginPage() {
           </form>
         </CardContent>
         <CardFooter className="flex flex-col space-y-2 text-center text-sm text-muted-foreground">
+          <p>
+            <a href="/forgot-password" className="text-primary hover:underline font-medium">
+              Recuperar contraseña
+            </a>
+          </p>
           <p>
             ¿No tienes una cuenta?{' '}
             <a href="/register/distributor" className="text-primary hover:underline font-medium">

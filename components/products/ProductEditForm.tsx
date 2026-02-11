@@ -17,6 +17,51 @@ import { updateProduct, uploadProductImage, createCategory } from '@/lib/actions
 // Image compression utility
 import imageCompression from 'browser-image-compression';
 
+// Helper function to handle URL input - converts URL to Supabase storage
+async function handleUrlInput(url: string, slug: string): Promise<string | null> {
+    if (!url) return null;
+
+    // Check if it's already a Supabase URL (our storage)
+    if (url.includes('supabase.co')) return url;
+
+    try {
+        // Fetch the image from the URL
+        const res = await fetch(url);
+        if (!res.ok) throw new Error('Failed to fetch image');
+
+        const blob = await res.blob();
+
+        // Convert blob to File
+        const fileName = `url-${Date.now()}-${Math.random().toString(36).substring(7)}.webp`;
+        const file = new File([blob], fileName, { type: blob.type || 'image/webp' });
+
+        // Compress the image
+        const options = {
+            maxSizeMB: 1,
+            maxWidthOrHeight: 1024,
+            useWebWorker: true,
+            fileType: 'image/webp'
+        };
+        const compressedFile = await imageCompression(file, options);
+
+        // Upload to Supabase Storage
+        const formData = new FormData();
+        formData.append('file', compressedFile);
+
+        const result = await uploadProductImage(formData, slug);
+
+        if (result.success && result.url) {
+            return result.url;
+        } else {
+            console.error('Error uploading URL image:', result.error);
+            return null;
+        }
+    } catch (error) {
+        console.error('Error processing URL image:', error);
+        return null;
+    }
+}
+
 interface Variant {
     id?: string;
     name: string;
@@ -263,9 +308,22 @@ export default function ProductEditForm({ product, variants, categories, distrib
                                     {...register('imageUrl')}
                                     placeholder="https://example.com/image.jpg"
                                     className="text-xs"
-                                    onChange={(e) => {
-                                        setValue('imageUrl', e.target.value);
-                                        setPreviewUrl(e.target.value);
+                                    onChange={async (e) => {
+                                        const url = e.target.value;
+                                        setValue('imageUrl', url);
+
+                                        // If it's a valid URL, try to convert to Supabase storage
+                                        if (url && (url.startsWith('http://') || url.startsWith('https://'))) {
+                                            setUploadProgress(10);
+                                            const convertedUrl = await handleUrlInput(url, slug);
+                                            if (convertedUrl) {
+                                                setValue('imageUrl', convertedUrl);
+                                                setPreviewUrl(convertedUrl);
+                                            }
+                                            setUploadProgress(0);
+                                        } else {
+                                            setPreviewUrl(url);
+                                        }
                                     }}
                                 />
                             </div>

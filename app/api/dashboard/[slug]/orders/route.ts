@@ -43,13 +43,17 @@ export async function GET(
                 total_amount,
                 status,
                 customer_id,
+                delivery_type,
+                pickup_time,
+                delivery_address_snapshot,
+                payment_method,
                 profiles!orders_customer_id_fkey (
                     full_name,
                     email
                 )
             `)
             .eq('distributor_id', distributor.id)
-            .eq('status', 'pending_approval')
+            .in('status', ['pending_approval', 'approved'])
             .order('created_at', { ascending: false });
 
         if (ordersError) {

@@ -94,7 +94,7 @@ export const getDistributorBySlug = async (slug: string) => {
       .from('distributors')
       .select('*')
       .eq('slug', slug)
-      .single();
+      .maybeSingle();
 
     if (error) {
       console.error('[Supabase] getDistributorBySlug error:', error.message);
@@ -104,6 +104,32 @@ export const getDistributorBySlug = async (slug: string) => {
     return distributor;
   } catch (err) {
     console.error('[Supabase] getDistributorBySlug unexpected error:', err);
+    return null;
+  }
+};
+
+/**
+ * Gets distributor settings from the v_distributor_settings view.
+ * This view returns location_json (GeoJSON) instead of raw PostGIS HEX.
+ */
+export const getDistributorSettingsBySlug = async (slug: string) => {
+  console.log('[Supabase] getDistributorSettingsBySlug hit for slug:', slug);
+
+  try {
+    const { data: distributor, error } = await adminClient
+      .from('v_distributor_settings')
+      .select('slug, address, location_json')
+      .eq('slug', slug)
+      .maybeSingle();
+
+    if (error) {
+      console.error('[Supabase] getDistributorSettingsBySlug error:', error.message);
+      return null;
+    }
+
+    return distributor;
+  } catch (err) {
+    console.error('[Supabase] getDistributorSettingsBySlug unexpected error:', err);
     return null;
   }
 };
