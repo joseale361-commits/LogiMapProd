@@ -9,9 +9,9 @@ import { Suspense } from 'react';
 
 interface LayoutProps {
     children: React.ReactNode;
-    params: Promise<{
+    params: {
         slug: string;
-    }>;
+    };
 }
 
 /**
@@ -86,7 +86,7 @@ async function StaffBannerWrapper({ distributorSlug }: { distributorSlug: string
  * Fetches distributor by slug and provides cart state management.
  */
 export default async function ShopLayout({ children, params }: LayoutProps) {
-    const { slug } = await params;
+    const { slug } = params;
 
     // Get distributor by slug
     const distributor = await getDistributorBySlug(slug);

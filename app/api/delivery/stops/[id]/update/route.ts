@@ -62,6 +62,7 @@ export async function POST(
             updateData.delivered_by = user.id;
         } else if (status === 'failed') {
             updateData.failure_reason = failureReason || null;
+            updateData.notes = failureReason || null;
         }
 
         // Update the stop
@@ -88,6 +89,9 @@ export async function POST(
                 if (status === 'delivered' || status === 'completed') {
                     orderUpdate.delivered_at = new Date().toISOString();
                 } else if (status === 'failed') {
+                    // Return failed order to pending pool (status: 'approved')
+                    orderUpdate.status = 'approved';
+                    orderUpdate.internal_notes = 'Intento fallido: ' + (failureReason || 'Sin especificar');
                     orderUpdate.failed_at = new Date().toISOString();
                     orderUpdate.failure_reason = failureReason || null;
                 }
@@ -96,6 +100,25 @@ export async function POST(
                     .from('orders')
                     .update(orderUpdate)
                     .eq('id', stopData.order_id);
+            }
+        }
+
+        // Check if route is complete after updating the stop
+        const { data: allStops, error: stopsError } = await supabase
+            .from('route_stops')
+            .select('status')
+            .eq('route_id', stop.route_id);
+
+        if (!stopsError && allStops && allStops.length > 0) {
+            const doneStatuses = ['completed', 'delivered', 'failed'];
+            const allDone = allStops.every(s => doneStatuses.includes(s.status));
+
+            if (allDone) {
+                // Update route status to completed - this makes the driver available again
+                await supabase
+                    .from('routes')
+                    .update({ status: 'completed', completed_at: new Date().toISOString() })
+                    .eq('id', stop.route_id);
             }
         }
 

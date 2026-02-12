@@ -2,9 +2,9 @@ import { getDistributorBySlug } from '@/lib/supabase/server';
 import { FinanceClient } from './FinanceClient';
 
 interface PageProps {
-    params: Promise<{
+    params: {
         slug: string;
-    }>;
+    };
 }
 
 /**
@@ -16,7 +16,7 @@ interface PageProps {
  * - Payment registration form
  */
 export default async function FinancePage({ params }: PageProps) {
-    const { slug } = await params;
+    const { slug } = params;
 
     // Guard clause: Get distributor
     const distributor = await getDistributorBySlug(slug);

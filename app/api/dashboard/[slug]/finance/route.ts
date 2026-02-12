@@ -52,7 +52,7 @@ export async function GET(
             throw cxcError;
         }
 
-        const totalCxC = cxcData?.reduce((sum, rel) => sum + (rel.current_debt || 0), 0) || 0;
+        const totalCxC = cxcData?.reduce((sum: number, rel: { current_debt: number | null }) => sum + (rel.current_debt || 0), 0) || 0;
 
         // Get today's collections (payments made today)
         const { data: paymentsData, error: paymentsError } = await adminClient
@@ -66,7 +66,7 @@ export async function GET(
             throw paymentsError;
         }
 
-        const recaudoHoy = paymentsData?.reduce((sum, payment) => sum + (payment.amount || 0), 0) || 0;
+        const recaudoHoy = paymentsData?.reduce((sum: number, payment: { amount: number | null }) => sum + (payment.amount || 0), 0) || 0;
 
         // Get debtors list with payment info
         const { data: debtorsData, error: debtorsError } = await adminClient
@@ -90,7 +90,7 @@ export async function GET(
         }
 
         // Get last payment for each debtor
-        const debtorIds = debtorsData?.map(d => d.customer_id) || [];
+        const debtorIds = debtorsData?.map((d: { customer_id: string }) => d.customer_id) || [];
         const { data: lastPaymentsData } = await adminClient
             .from('payments')
             .select('customer_id, amount, payment_date')

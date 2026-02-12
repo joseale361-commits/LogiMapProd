@@ -20,6 +20,7 @@ export async function getProductsByDistributorId(distributorId: string) {
                 description,
                 base_price,
                 sku,
+                brand,
                 image_url,
                 is_active,
                 created_at,

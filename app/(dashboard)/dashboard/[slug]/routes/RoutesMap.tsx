@@ -80,10 +80,33 @@ interface RoutesMapProps {
     selectedOrders: SelectedOrdersType;
     warehouseLocation: [number, number] | null;
     onOrderSelect: (id: string) => void;
-    getMapPosition: (order: any) => [number, number] | null;
+    getMapPosition?: (order: any) => [number, number] | null;
     formatCurrency: (amount: number) => string;
     mapboxToken?: string;
+    autoFitBounds?: boolean;
 }
+
+// Helper to extract position from order with location_json (GeoJSON)
+const getOrderPosition = (order: any): [number, number] | null => {
+    // Try location_json first (GeoJSON format from DB)
+    if (order.location_json?.coordinates && Array.isArray(order.location_json.coordinates)) {
+        const [lng, lat] = order.location_json.coordinates;
+        // Check for valid coordinates (not 0,0 which is in Atlantic Ocean)
+        if (!isNaN(lat) && !isNaN(lng) && lat !== 0 && lng !== 0) {
+            // GeoJSON is [lng, lat], Leaflet needs [lat, lng]
+            return [lat, lng];
+        }
+    }
+
+    // Fallback to direct lat/lng properties
+    if (order.lat != null && order.lng != null && !isNaN(order.lat) && !isNaN(order.lng)) {
+        if (order.lat !== 0 && order.lng !== 0) {
+            return [order.lat, order.lng];
+        }
+    }
+
+    return null;
+};
 
 // Component to handle map center updates
 function MapUpdater({ center }: { center: [number, number] | null }) {
@@ -100,16 +123,23 @@ function MapUpdater({ center }: { center: [number, number] | null }) {
 function BoundsUpdater({
     positions,
     warehouseLocation,
-    selectionVersion
+    selectionVersion,
+    allOrderPositions
 }: {
     positions: [number, number][];
     warehouseLocation: [number, number] | null;
     selectionVersion: number;
+    allOrderPositions?: [number, number][];
 }) {
     const map = useMap();
 
     useEffect(() => {
-        if (positions.length === 0 && !warehouseLocation) return;
+        // Use all order positions if available, otherwise fall back to selected positions
+        const positionsToUse = (allOrderPositions && allOrderPositions.length > 0)
+            ? allOrderPositions
+            : positions;
+
+        if (positionsToUse.length === 0 && !warehouseLocation) return;
 
         const bounds = L.latLngBounds([]);
 
@@ -117,7 +147,7 @@ function BoundsUpdater({
             bounds.extend(warehouseLocation);
         }
 
-        positions.forEach(pos => bounds.extend(pos));
+        positionsToUse.forEach(pos => bounds.extend(pos));
 
         if (bounds.isValid()) {
             // Add some padding
@@ -127,7 +157,7 @@ function BoundsUpdater({
                 duration: 1,
             });
         }
-    }, [positions, warehouseLocation, selectionVersion, map]);
+    }, [positions, warehouseLocation, selectionVersion, map, allOrderPositions]);
 
     return null;
 }
@@ -139,7 +169,6 @@ export default function RoutesMap({
     selectedOrders,
     warehouseLocation,
     onOrderSelect,
-    getMapPosition,
     formatCurrency,
     mapboxToken
 }: RoutesMapProps) {
@@ -170,9 +199,16 @@ export default function RoutesMap({
             .filter((o: any) => o);
 
         return validOrders
-            .map((o: any) => getMapPosition(o))
+            .map((o: any) => getOrderPosition(o))
             .filter((p: [number, number] | null): p is [number, number] => p !== null);
-    }, [JSON.stringify(selectedOrdersArray), orders, getMapPosition]);
+    }, [JSON.stringify(selectedOrdersArray), orders]);
+
+    // Get ALL order positions for auto-fit
+    const allOrderPositions = useMemo(() => {
+        return orders
+            .map((o: any) => getOrderPosition(o))
+            .filter((p: [number, number] | null): p is [number, number] => p !== null);
+    }, [orders]);
 
     // Create polyline positions (warehouse first, then selected orders)
     const polylinePositions = useMemo(() => {
@@ -233,7 +269,7 @@ export default function RoutesMap({
                         : "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"}
                 />
                 <MapUpdater center={mapCenter} />
-                <BoundsUpdater positions={selectedPositions} warehouseLocation={warehouseLocation} selectionVersion={selectionVersion} />
+                <BoundsUpdater positions={selectedPositions} warehouseLocation={warehouseLocation} selectionVersion={selectionVersion} allOrderPositions={allOrderPositions} />
 
                 {/* Warehouse marker (red) */}
                 {warehouseLocation &&
@@ -271,7 +307,7 @@ export default function RoutesMap({
 
                 {/* Order markers */}
                 {orders.map((order) => {
-                    const position = getMapPosition(order);
+                    const position = getOrderPosition(order);
                     // Skip invalid positions (null, undefined, or [0, 0] which is in Atlantic Ocean)
                     if (!position || position[0] === 0 || position[1] === 0) {
                         console.warn('[RoutesMap] Skipping order with invalid position:', order.id, position);

@@ -39,7 +39,7 @@ export function MobileMenu({ distributorName, userEmail, slug, userRole }: Mobil
                         <h1 className="text-lg font-bold text-gray-900">{distributorName}</h1>
                         <p className="text-xs text-gray-500">Dashboard</p>
                     </div>
-                    <Button variant="ghost" size="icon" onClick={() => setIsOpen(true)}>
+                    <Button variant="ghost" size="icon" onClick={() => setIsOpen(true)} className="min-h-[44px] min-w-[44px]">
                         <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
                         </svg>
@@ -58,13 +58,13 @@ export function MobileMenu({ distributorName, userEmail, slug, userRole }: Mobil
                             </Button>
                         </div>
 
-                        <nav className="flex-1 p-4 space-y-2 overflow-y-auto">
+                        <nav className="flex-1 p-2 md:p-4 space-y-1 md:space-y-2 overflow-y-auto">
                             {menuItems.map((item) => (
                                 <Link
                                     key={item.href}
                                     href={item.href}
                                     onClick={() => setIsOpen(false)}
-                                    className="flex items-center gap-3 px-4 py-3 text-gray-700 rounded-lg hover:bg-gray-100 transition-colors"
+                                    className="flex items-center gap-3 px-3 py-3 md:px-4 md:py-3 text-gray-700 rounded-lg hover:bg-gray-100 transition-colors min-h-[44px]"
                                 >
                                     <item.icon className="w-5 h-5" />
                                     <span className="font-medium">{item.label}</span>
@@ -76,7 +76,7 @@ export function MobileMenu({ distributorName, userEmail, slug, userRole }: Mobil
                                 href={`/shop/${slug}`}
                                 target="_blank"
                                 rel="noopener noreferrer"
-                                className="flex items-center gap-3 px-4 py-3 text-blue-600 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors mt-4"
+                                className="flex items-center gap-3 px-3 py-3 md:px-4 md:py-3 text-blue-600 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors mt-4 min-h-[44px]"
                             >
                                 <ExternalLink className="w-5 h-5" />
                                 <span className="font-medium">Ver mi Tienda Online</span>
@@ -86,7 +86,7 @@ export function MobileMenu({ distributorName, userEmail, slug, userRole }: Mobil
                             <Link
                                 href="/delivery/routes"
                                 onClick={() => setIsOpen(false)}
-                                className="flex items-center gap-3 px-4 py-3 text-green-700 bg-green-50 rounded-lg hover:bg-green-100 transition-colors"
+                                className="flex items-center gap-3 px-3 py-3 md:px-4 md:py-3 text-green-700 bg-green-50 rounded-lg hover:bg-green-100 transition-colors min-h-[44px]"
                             >
                                 <ExternalLink className="w-5 h-5" />
                                 <span className="font-medium">📱 Modo Conductor</span>
@@ -109,7 +109,7 @@ export function MobileMenu({ distributorName, userEmail, slug, userRole }: Mobil
                             </div>
 
                             <form action={signOutAction}>
-                                <Button type="submit" variant="outline" className="w-full">
+                                <Button type="submit" variant="outline" className="w-full min-h-[44px]">
                                     <LogOut className="w-4 h-4 mr-2" />
                                     Cerrar Sesión
                                 </Button>

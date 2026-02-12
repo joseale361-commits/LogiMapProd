@@ -3,9 +3,9 @@ import { getCurrentUser, getDistributorBySlug, getUserRoleForDistributor } from 
 
 interface LayoutProps {
     children: React.ReactNode;
-    params: Promise<{
+    params: {
         slug: string;
-    }>;
+    };
 }
 
 /**
@@ -13,7 +13,7 @@ interface LayoutProps {
  * Only users with 'admin' role can access CRM functionality.
  */
 export default async function CustomersLayout({ children, params }: LayoutProps) {
-    const { slug } = await params;
+    const { slug } = params;
 
     // Guard clause: Verify authentication
     const user = await getCurrentUser();

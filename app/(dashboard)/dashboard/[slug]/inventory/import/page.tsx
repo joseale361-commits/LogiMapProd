@@ -1,13 +1,13 @@
 import InventoryImportClient from './InventoryImportClient';
 
 interface PageProps {
-    params: Promise<{
+    params: {
         slug: string;
-    }>;
+    };
 }
 
 export default async function InventoryImportPage({ params }: PageProps) {
-    const { slug } = await params;
+    const { slug } = params;
 
     return <InventoryImportClient slug={slug} />;
 }

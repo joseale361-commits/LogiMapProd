@@ -5,14 +5,14 @@ import ProductEditForm from '@/components/products/ProductEditForm';
 import { getCategoriesByDistributorId } from '@/lib/queries/products';
 
 interface PageProps {
-    params: Promise<{
+    params: {
         slug: string;
         id: string;
-    }>;
+    };
 }
 
 export default async function ProductEditPage({ params }: PageProps) {
-    const { slug, id } = await params;
+    const { slug, id } = params;
 
     const distributor = await getDistributorBySlug(slug);
     if (!distributor) notFound();

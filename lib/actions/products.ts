@@ -57,15 +57,25 @@ export async function updateProduct(id: string, data: any) {
 
                 if (!variant.id) {
                     // Insert new variant
+                    // Ensure stock values are integers
+                    const stockVirtual = parseInt(String(variant.stock_virtual || 0), 10);
+                    const targetStock = parseInt(String(variant.target_stock || 0), 10);
+
+                    console.log('Inserting new variant:', { stock_virtual: stockVirtual, target_stock: targetStock });
+
                     const { error: insertError } = await adminClient
                         .from('product_variants')
                         .insert({
                             product_id: id,
-                            distributor_id: data.distributor_id, // Updated to distributor_id
+                            distributor_id: data.distributor_id,
                             sku: variant.sku,
                             price: variant.price,
-                            stock_quantity: variant.stock_quantity || 0,
-                            attributes: attributes,
+                            stock_virtual: stockVirtual,
+                            attributes: {
+                                ...variant.attributes,
+                                stock_virtual: stockVirtual,
+                                target_stock: targetStock,
+                            },
                             is_new: variant.is_new || false,
                             is_on_sale: variant.is_on_sale || false,
                             sale_price: variant.sale_price || 0,
@@ -76,11 +86,21 @@ export async function updateProduct(id: string, data: any) {
                     if (insertError) throw new Error(`Error inserting variant: ${insertError.message}`);
                 } else {
                     // Update existing variant
+                    // Ensure stock values are integers
+                    const stockVirtual = parseInt(String(variant.stock_virtual || 0), 10);
+                    const targetStock = parseInt(String(variant.target_stock || 0), 10);
+
+                    console.log('Updating variant:', variant.id, { stock_virtual: stockVirtual, target_stock: targetStock });
+
                     const variantUpdate: any = {
                         sku: variant.sku,
                         price: variant.price,
-                        stock_quantity: variant.stock_quantity,
-                        attributes: attributes,
+                        stock_virtual: stockVirtual,
+                        attributes: {
+                            ...variant.attributes,
+                            stock_virtual: stockVirtual,
+                            target_stock: targetStock,
+                        },
                         is_new: variant.is_new,
                         is_on_sale: variant.is_on_sale,
                         sale_price: variant.sale_price,
@@ -91,6 +111,8 @@ export async function updateProduct(id: string, data: any) {
                         .from('product_variants')
                         .update(variantUpdate)
                         .eq('id', variant.id);
+
+                    console.log('Variant update result:', variantError);
 
                     if (variantError) throw new Error(`Error updating variant: ${variantError.message}`);
                 }
@@ -109,6 +131,7 @@ export async function updateProduct(id: string, data: any) {
         }
 
         revalidatePath('/dashboard/[slug]/products');
+        revalidatePath('/dashboard/[slug]/inventory');
         return { success: true };
     } catch (error) {
         console.error('Update Product Error:', error);

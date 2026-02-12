@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from 'react';
+import { useParams } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -49,14 +50,11 @@ interface Order {
     payment_method: string;
 }
 
-interface PageProps {
-    params: Promise<{
-        slug: string;
-    }>;
-}
+interface PageProps { }
 
-export default function OrdersPage({ params }: PageProps) {
-    const [slug, setSlug] = useState<string>('');
+export default function OrdersPage() {
+    const params = useParams();
+    const slug = params?.slug as string;
     const [orders, setOrders] = useState<Order[]>([]);
     const [loading, setLoading] = useState(true);
     const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
@@ -70,11 +68,10 @@ export default function OrdersPage({ params }: PageProps) {
     const [viewFilter, setViewFilter] = useState<'pending' | 'pickup'>('pending');
 
     useEffect(() => {
-        params.then(({ slug }) => {
-            setSlug(slug);
+        if (slug) {
             fetchOrders(slug);
-        });
-    }, [params]);
+        }
+    }, [slug]);
 
     const fetchOrders = async (distributorSlug: string) => {
         try {
@@ -308,7 +305,7 @@ export default function OrdersPage({ params }: PageProps) {
                 </div>
             )}
 
-            {/* Orders Table */}
+            {/* Orders Table - Desktop */}
             <Card>
                 <CardHeader>
                     <CardTitle className="flex items-center gap-2">
@@ -328,146 +325,251 @@ export default function OrdersPage({ params }: PageProps) {
                             <p className="text-sm mt-1">Los pedidos aparecerán aquí según su tipo y estado</p>
                         </div>
                     ) : (
-                        <div className="overflow-x-auto">
-                            <Table>
-                                <TableHeader>
-                                    <TableRow>
-                                        <TableHead>Pedido</TableHead>
-                                        <TableHead>Cliente</TableHead>
-                                        <TableHead>Fecha</TableHead>
-                                        <TableHead>{viewFilter === 'pickup' ? 'Hora de Retiro' : 'Entrega'}</TableHead>
-                                        <TableHead>Total</TableHead>
-                                        <TableHead className="text-right">Acciones</TableHead>
-                                    </TableRow>
-                                </TableHeader>
-                                <TableBody>
-                                    {filteredOrders.map((order) => (
-                                        <TableRow
-                                            key={order.id}
-                                            className={order.delivery_type === 'pickup' ? 'bg-amber-50/30 border-l-4 border-l-amber-400' : ''}
-                                        >
-                                            <TableCell>
-                                                <div className="font-medium">{order.order_number}</div>
+                        <>
+                            {/* Mobile Card View */}
+                            <div className="md:hidden space-y-4">
+                                {filteredOrders.map((order) => (
+                                    <div
+                                        key={order.id}
+                                        className={`bg-white border rounded-lg p-4 shadow-sm ${order.delivery_type === 'pickup' ? 'border-l-4 border-l-amber-400 bg-amber-50/30' : ''}`}
+                                    >
+                                        <div className="flex justify-between items-start mb-3">
+                                            <div>
+                                                <div className="font-bold text-gray-900">{order.order_number}</div>
                                                 <div className="text-sm text-gray-500">{order.id.slice(0, 8)}...</div>
-                                            </TableCell>
-                                            <TableCell>
-                                                <div className="flex items-center gap-2">
-                                                    <User className="w-4 h-4 text-gray-400" />
-                                                    <div>
-                                                        <div className="font-medium">{order.customer.full_name}</div>
-                                                        <div className="text-sm text-gray-500">{order.customer.email}</div>
-                                                    </div>
-                                                </div>
-                                            </TableCell>
-                                            <TableCell>
-                                                <div className="flex items-center gap-2 text-sm">
-                                                    <Clock className="w-4 h-4 text-gray-400" />
-                                                    {formatDate(order.created_at)}
-                                                </div>
-                                            </TableCell>
-                                            <TableCell>
-                                                <div className="text-sm">
-                                                    {order.delivery_type === 'pickup' ? (
-                                                        <div className="flex flex-col">
-                                                            <div className="font-bold text-amber-700 flex items-center gap-1">
-                                                                <Store className="w-3 h-3" /> RETIRO EN BODEGA
-                                                            </div>
-                                                            {order.pickup_time ? (
-                                                                <div className="font-medium">
-                                                                    {new Date(order.pickup_time).toLocaleString('es-CO', {
-                                                                        day: 'numeric',
-                                                                        month: 'short',
-                                                                        hour: '2-digit',
-                                                                        minute: '2-digit'
-                                                                    })}
-                                                                </div>
-                                                            ) : (
-                                                                <span className="text-gray-500">Hora no definida</span>
-                                                            )}
-                                                        </div>
-                                                    ) : order.requested_delivery_date ? (
+                                            </div>
+                                            {order.delivery_type === 'pickup' && (
+                                                <Badge className="bg-amber-100 text-amber-800 text-xs">
+                                                    <Store className="w-3 h-3 mr-1" /> RETIRO
+                                                </Badge>
+                                            )}
+                                        </div>
+
+                                        <div className="space-y-2 mb-3">
+                                            <div className="flex items-center gap-2 text-sm">
+                                                <User className="w-4 h-4 text-gray-400" />
+                                                <span className="font-medium text-gray-900">{order.customer.full_name}</span>
+                                            </div>
+                                            <div className="flex items-center gap-2 text-sm text-gray-600">
+                                                <Clock className="w-4 h-4 text-gray-400" />
+                                                <span>{formatDate(order.created_at)}</span>
+                                            </div>
+                                            <div className="text-sm font-bold text-gray-900">
+                                                {formatCurrency(order.total_amount)}
+                                            </div>
+                                        </div>
+
+                                        {/* Mobile Action Buttons */}
+                                        <div className="flex flex-wrap gap-2">
+                                            {viewFilter === 'pending' ? (
+                                                <>
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="sm"
+                                                        onClick={() => {
+                                                            setSelectedOrder(order);
+                                                            setShowMapDialog(true);
+                                                        }}
+                                                        disabled={!order.delivery_location}
+                                                        className="min-h-[44px] flex-1"
+                                                    >
+                                                        <MapPin className="w-4 h-4 mr-1" />
+                                                        Mapa
+                                                    </Button>
+                                                    <Button
+                                                        variant="outline"
+                                                        size="sm"
+                                                        onClick={() => {
+                                                            setSelectedOrder(order);
+                                                            setShowRejectDialog(true);
+                                                        }}
+                                                        disabled={actionLoading}
+                                                        className="min-h-[44px] flex-1"
+                                                    >
+                                                        <X className="w-4 h-4 mr-1" />
+                                                        Rechazar
+                                                    </Button>
+                                                    <Button
+                                                        variant="default"
+                                                        size="sm"
+                                                        onClick={() => {
+                                                            if (order.delivery_type === 'pickup') {
+                                                                handleMarkReady(order.id);
+                                                            } else {
+                                                                handleApprove(order.id);
+                                                            }
+                                                        }}
+                                                        disabled={actionLoading}
+                                                        className="min-h-[44px] flex-1 bg-blue-600 hover:bg-blue-700"
+                                                    >
+                                                        <Check className="w-4 h-4 mr-1" />
+                                                        {order.delivery_type === 'pickup' ? 'Listo' : 'Aprobar'}
+                                                    </Button>
+                                                </>
+                                            ) : (
+                                                order.status === 'approved' && (
+                                                    <Button
+                                                        variant="default"
+                                                        size="sm"
+                                                        onClick={() => handleMarkDelivered(order.id)}
+                                                        disabled={actionLoading}
+                                                        className="min-h-[44px] w-full bg-green-600 hover:bg-green-700"
+                                                    >
+                                                        <Check className="w-4 h-4 mr-1" />
+                                                        Entregado en Mostrador
+                                                    </Button>
+                                                )
+                                            )}
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+
+                            {/* Desktop Table View */}
+                            <div className="hidden md:block overflow-x-auto">
+                                <Table>
+                                    <TableHeader>
+                                        <TableRow>
+                                            <TableHead>Pedido</TableHead>
+                                            <TableHead>Cliente</TableHead>
+                                            <TableHead>Fecha</TableHead>
+                                            <TableHead>{viewFilter === 'pickup' ? 'Hora de Retiro' : 'Entrega'}</TableHead>
+                                            <TableHead>Total</TableHead>
+                                            <TableHead className="text-right">Acciones</TableHead>
+                                        </TableRow>
+                                    </TableHeader>
+                                    <TableBody>
+                                        {filteredOrders.map((order) => (
+                                            <TableRow
+                                                key={order.id}
+                                                className={order.delivery_type === 'pickup' ? 'bg-amber-50/30 border-l-4 border-l-amber-400' : ''}
+                                            >
+                                                <TableCell>
+                                                    <div className="font-medium">{order.order_number}</div>
+                                                    <div className="text-sm text-gray-500">{order.id.slice(0, 8)}...</div>
+                                                </TableCell>
+                                                <TableCell>
+                                                    <div className="flex items-center gap-2">
+                                                        <User className="w-4 h-4 text-gray-400" />
                                                         <div>
-                                                            <div className="font-medium">
-                                                                {new Date(order.requested_delivery_date).toLocaleDateString('es-CO')}
-                                                            </div>
-                                                            {order.requested_delivery_time_slot && (
-                                                                <div className="text-gray-500">{order.requested_delivery_time_slot}</div>
-                                                            )}
+                                                            <div className="font-medium">{order.customer.full_name}</div>
+                                                            <div className="text-sm text-gray-500">{order.customer.email}</div>
                                                         </div>
-                                                    ) : (
-                                                        <span className="text-gray-500">No especificada</span>
-                                                    )}
-                                                </div>
-                                            </TableCell>
-                                            <TableCell>
-                                                <div className="font-medium">{formatCurrency(order.total_amount)}</div>
-                                            </TableCell>
-                                            <TableCell className="text-right">
-                                                <div className="flex items-center justify-end gap-2">
-                                                    {viewFilter === 'pending' ? (
-                                                        <>
-                                                            <Button
-                                                                variant="ghost"
-                                                                size="sm"
-                                                                onClick={() => {
-                                                                    setSelectedOrder(order);
-                                                                    setShowMapDialog(true);
-                                                                }}
-                                                                disabled={!order.delivery_location}
-                                                                title="Ver en mapa"
-                                                            >
-                                                                <MapPin className="w-4 h-4" />
-                                                            </Button>
-                                                            <Button
-                                                                variant="outline"
-                                                                size="sm"
-                                                                onClick={() => {
-                                                                    setSelectedOrder(order);
-                                                                    setShowRejectDialog(true);
-                                                                }}
-                                                                disabled={actionLoading}
-                                                                title="Rechazar"
-                                                            >
-                                                                <X className="w-4 h-4" />
-                                                            </Button>
-                                                            <Button
-                                                                variant="default"
-                                                                size="sm"
-                                                                onClick={() => {
-                                                                    if (order.delivery_type === 'pickup') {
-                                                                        handleMarkReady(order.id);
-                                                                    } else {
-                                                                        handleApprove(order.id);
-                                                                    }
-                                                                }}
-                                                                disabled={actionLoading}
-                                                                title={order.delivery_type === 'pickup' ? "Marcar como Listo para Retirar" : "Aprobar"}
-                                                            >
-                                                                <Check className="w-4 h-4" />
-                                                            </Button>
-                                                        </>
-                                                    ) : (
-                                                        <>
-                                                            {order.status === 'approved' && (
+                                                    </div>
+                                                </TableCell>
+                                                <TableCell>
+                                                    <div className="flex items-center gap-2 text-sm">
+                                                        <Clock className="w-4 h-4 text-gray-400" />
+                                                        {formatDate(order.created_at)}
+                                                    </div>
+                                                </TableCell>
+                                                <TableCell>
+                                                    <div className="text-sm">
+                                                        {order.delivery_type === 'pickup' ? (
+                                                            <div className="flex flex-col">
+                                                                <div className="font-bold text-amber-700 flex items-center gap-1">
+                                                                    <Store className="w-3 h-3" /> RETIRO EN BODEGA
+                                                                </div>
+                                                                {order.pickup_time ? (
+                                                                    <div className="font-medium">
+                                                                        {new Date(order.pickup_time).toLocaleString('es-CO', {
+                                                                            day: 'numeric',
+                                                                            month: 'short',
+                                                                            hour: '2-digit',
+                                                                            minute: '2-digit'
+                                                                        })}
+                                                                    </div>
+                                                                ) : (
+                                                                    <span className="text-gray-500">Hora no definida</span>
+                                                                )}
+                                                            </div>
+                                                        ) : order.requested_delivery_date ? (
+                                                            <div>
+                                                                <div className="font-medium">
+                                                                    {new Date(order.requested_delivery_date).toLocaleDateString('es-CO')}
+                                                                </div>
+                                                                {order.requested_delivery_time_slot && (
+                                                                    <div className="text-gray-500">{order.requested_delivery_time_slot}</div>
+                                                                )}
+                                                            </div>
+                                                        ) : (
+                                                            <span className="text-gray-500">No especificada</span>
+                                                        )}
+                                                    </div>
+                                                </TableCell>
+                                                <TableCell>
+                                                    <div className="font-medium">{formatCurrency(order.total_amount)}</div>
+                                                </TableCell>
+                                                <TableCell className="text-right">
+                                                    <div className="flex items-center justify-end gap-2">
+                                                        {viewFilter === 'pending' ? (
+                                                            <>
+                                                                <Button
+                                                                    variant="ghost"
+                                                                    size="sm"
+                                                                    onClick={() => {
+                                                                        setSelectedOrder(order);
+                                                                        setShowMapDialog(true);
+                                                                    }}
+                                                                    disabled={!order.delivery_location}
+                                                                    title="Ver en mapa"
+                                                                    className="min-h-[44px]"
+                                                                >
+                                                                    <MapPin className="w-4 h-4" />
+                                                                </Button>
+                                                                <Button
+                                                                    variant="outline"
+                                                                    size="sm"
+                                                                    onClick={() => {
+                                                                        setSelectedOrder(order);
+                                                                        setShowRejectDialog(true);
+                                                                    }}
+                                                                    disabled={actionLoading}
+                                                                    title="Rechazar"
+                                                                    className="min-h-[44px]"
+                                                                >
+                                                                    <X className="w-4 h-4" />
+                                                                </Button>
                                                                 <Button
                                                                     variant="default"
                                                                     size="sm"
-                                                                    onClick={() => handleMarkDelivered(order.id)}
+                                                                    onClick={() => {
+                                                                        if (order.delivery_type === 'pickup') {
+                                                                            handleMarkReady(order.id);
+                                                                        } else {
+                                                                            handleApprove(order.id);
+                                                                        }
+                                                                    }}
                                                                     disabled={actionLoading}
-                                                                    className="bg-green-600 hover:bg-green-700 text-white"
+                                                                    title={order.delivery_type === 'pickup' ? "Marcar como Listo para Retirar" : "Aprobar"}
+                                                                    className="min-h-[44px] bg-blue-600 hover:bg-blue-700"
                                                                 >
-                                                                    Entregado en Mostrador
+                                                                    <Check className="w-4 h-4" />
                                                                 </Button>
-                                                            )}
-                                                        </>
-                                                    )}
-                                                </div>
-                                            </TableCell>
-                                        </TableRow>
-                                    ))}
-                                </TableBody>
-                            </Table>
-                        </div>
+                                                            </>
+                                                        ) : (
+                                                            <>
+                                                                {order.status === 'approved' && (
+                                                                    <Button
+                                                                        variant="default"
+                                                                        size="sm"
+                                                                        onClick={() => handleMarkDelivered(order.id)}
+                                                                        disabled={actionLoading}
+                                                                        className="bg-green-600 hover:bg-green-700 text-white"
+                                                                    >
+                                                                        Entregado en Mostrador
+                                                                    </Button>
+                                                                )}
+                                                            </>
+                                                        )}
+                                                    </div>
+                                                </TableCell>
+                                            </TableRow>
+                                        ))}
+                                    </TableBody>
+                                </Table>
+                            </div>
+                        </>
                     )}
                 </CardContent>
             </Card>

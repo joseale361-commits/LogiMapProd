@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from 'react';
+import { useParams } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -26,11 +27,7 @@ interface TeamMember {
     };
 }
 
-interface PageProps {
-    params: Promise<{
-        slug: string;
-    }>;
-}
+interface PageProps { }
 
 const roleLabels: Record<string, string> = {
     driver: 'Chofer',
@@ -46,8 +43,9 @@ const roleColors: Record<string, string> = {
     staff: 'bg-gray-100 text-gray-800',
 };
 
-export default function TeamPage({ params }: PageProps) {
-    const [slug, setSlug] = useState<string>('');
+export default function TeamPage() {
+    const params = useParams();
+    const slug = params?.slug as string;
     const [members, setMembers] = useState<TeamMember[]>([]);
     const [loading, setLoading] = useState(true);
     const [showCreateDialog, setShowCreateDialog] = useState(false);
@@ -60,11 +58,10 @@ export default function TeamPage({ params }: PageProps) {
     const [tempPassword, setTempPassword] = useState<string>('');
 
     useEffect(() => {
-        params.then(({ slug }) => {
-            setSlug(slug);
+        if (slug) {
             fetchTeamMembers(slug);
-        });
-    }, [params]);
+        }
+    }, [slug]);
 
     const fetchTeamMembers = async (distributorSlug: string) => {
         try {

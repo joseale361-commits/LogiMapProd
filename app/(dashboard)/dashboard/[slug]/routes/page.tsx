@@ -2,7 +2,8 @@
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
-import { useState, useEffect, use } from 'react';
+import { useState, useEffect } from 'react';
+import { useParams } from 'next/navigation';
 import { useRouter } from 'next/navigation';
 import { createClient as createBrowserClient } from '@/lib/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -17,13 +18,11 @@ import { MapPin, Truck, Plus, Check, AlertCircle, Calendar, Package, History, La
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import dynamic from 'next/dynamic';
 
-const RoutesMap = dynamic(
-    () => import('./RoutesMap'),
-    {
-        ssr: false,
-        loading: () => <div className="h-96 bg-gray-100 flex items-center justify-center rounded-lg">Cargando mapa...</div>
-    }
-);
+// Use local RoutesMap component that properly renders order markers with location_json
+const RoutesMap = dynamic(() => import('./RoutesMap'), {
+    ssr: false,
+    loading: () => <div className="h-96 bg-gray-100 animate-pulse">Cargando mapa...</div>
+});
 
 import { createRouteAction } from '@/lib/actions/routes';
 import { getActiveRoutes } from '@/lib/queries/routes-client';
@@ -59,16 +58,12 @@ interface Driver {
     status: string;
 }
 
-interface PageProps {
-    params: Promise<{
-        slug: string;
-    }>;
-}
+interface PageProps { }
 
-export default function RoutesPage(props: PageProps) {
-    const params = use(props.params);
+export default function RoutesPage() {
+    const params = useParams();
+    const slug = params?.slug as string;
     const router = useRouter();
-    const slug = params.slug;
 
     const [orders, setOrders] = useState<Order[]>([]);
     const [drivers, setDrivers] = useState<Driver[]>([]);
@@ -88,7 +83,9 @@ export default function RoutesPage(props: PageProps) {
     const [warehouseLocation, setWarehouseLocation] = useState<[number, number] | null>(null);
 
     useEffect(() => {
-        fetchData(slug);
+        if (slug) {
+            fetchData(slug);
+        }
     }, [slug]);
 
     const fetchData = async (distributorSlug: string) => {
@@ -157,18 +154,20 @@ export default function RoutesPage(props: PageProps) {
 
             setOrders(processedOrders);
 
-            // 3. FETCH DRIVERS
+            // 3. FETCH DRIVERS (include both driver and staff roles)
             console.log('[RoutesPage] Fetching drivers...');
             const { data: userRoles, error: rolesError } = await supabase
                 .from('distributor_users')
-                .select('user_id')
+                .select('user_id, role')
                 .eq('distributor_id', distributor.id)
-                .eq('role', 'driver')
+                .in('role', ['driver', 'staff'])
                 .eq('is_active', true);
 
             if (rolesError) {
                 console.error('[RoutesPage] Drivers Error:', rolesError);
             }
+
+            console.log('[RoutesPage] User roles found:', userRoles);
 
             let drivers: Driver[] = [];
             if (userRoles && userRoles.length > 0) {
@@ -179,13 +178,16 @@ export default function RoutesPage(props: PageProps) {
                     .in('id', userIds);
 
                 if (!profilesError && profiles) {
+                    console.log('[RoutesPage] Profiles fetched:', profiles);
                     drivers = profiles.map(p => ({
                         id: p.id,
-                        full_name: p.full_name,
+                        full_name: p.full_name || p.email || 'Unknown',
                         email: p.email,
                         phone: p.phone,
                         status: 'active'
                     }));
+                } else if (profilesError) {
+                    console.error('[RoutesPage] Profiles Error:', profilesError);
                 }
             }
             setDrivers(drivers);
@@ -381,11 +383,11 @@ export default function RoutesPage(props: PageProps) {
         : historyRoutes.filter(r => r.planned_date === historyDateFilter);
 
     return (
-        <div className="space-y-6">
+        <div className="space-y-4 md:space-y-6">
             {/* Header */}
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                 <div>
-                    <h1 className="text-3xl font-bold text-gray-900">Planificador de Rutas</h1>
+                    <h1 className="text-2xl md:text-3xl font-bold text-gray-900">Planificador de Rutas</h1>
                     <p className="text-gray-600 mt-1">
                         Crea y asigna rutas a los choferes
                     </p>
@@ -393,7 +395,7 @@ export default function RoutesPage(props: PageProps) {
                 <Button
                     onClick={() => setShowCreateRouteDialog(true)}
                     disabled={selectedOrders.size === 0 || loading}
-                    className="gap-2"
+                    className="gap-2 min-h-[44px] bg-blue-600 hover:bg-blue-700 w-full sm:w-auto"
                 >
                     <Plus className="w-4 h-4" />
                     Crear Ruta ({selectedOrders.size})
@@ -464,7 +466,7 @@ export default function RoutesPage(props: PageProps) {
                                         <Button
                                             variant="outline"
                                             size="sm"
-                                            className="w-full mt-3 gap-2"
+                                            className="w-full mt-3 gap-2 min-h-[44px]"
                                             onClick={(e) => {
                                                 e.stopPropagation();
                                                 router.push(`/dashboard/${slug}/routes/${route.id}`);
@@ -556,7 +558,6 @@ export default function RoutesPage(props: PageProps) {
                                             selectedOrders={Array.from(selectedOrders)}
                                             warehouseLocation={warehouseLocation}
                                             onOrderSelect={handleOrderSelect}
-                                            getMapPosition={getMapPosition}
                                             formatCurrency={formatCurrency}
                                             mapboxToken={process.env.NEXT_PUBLIC_MAPBOX_TOKEN}
                                             key={Array.from(selectedOrders).join(',')}
@@ -593,11 +594,11 @@ export default function RoutesPage(props: PageProps) {
                                                 >
                                                     <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
                                                         <span className="text-sm font-medium text-blue-600">
-                                                            {driver.full_name.charAt(0).toUpperCase()}
+                                                            {(driver.full_name || driver.email || '?').charAt(0).toUpperCase()}
                                                         </span>
                                                     </div>
                                                     <div className="flex-1 min-w-0">
-                                                        <div className="font-medium truncate">{driver.full_name}</div>
+                                                        <div className="font-medium truncate">{driver.full_name || driver.email || 'Unknown'}</div>
                                                         <div className="text-sm text-gray-500 truncate">{driver.status}</div>
                                                     </div>
                                                     {selectedDriver === driver.id && (
@@ -623,6 +624,7 @@ export default function RoutesPage(props: PageProps) {
                                             size="sm"
                                             onClick={handleSelectAll}
                                             disabled={orders.length === 0}
+                                            className="min-h-[44px]"
                                         >
                                             {selectedOrders.size === orders.length ? 'Deseleccionar' : 'Seleccionar'}
                                         </Button>
@@ -764,7 +766,7 @@ export default function RoutesPage(props: PageProps) {
                         <div className="space-y-2">
                             <Label>Chofer Asignado</Label>
                             <div className="text-sm font-medium">
-                                {drivers.find((d) => d.id === selectedDriver)?.full_name || 'No seleccionado'}
+                                {drivers.find((d) => d.id === selectedDriver)?.full_name || drivers.find((d) => d.id === selectedDriver)?.email || 'No seleccionado'}
                             </div>
                         </div>
                         <div className="space-y-2">
@@ -796,12 +798,14 @@ export default function RoutesPage(props: PageProps) {
                             variant="outline"
                             onClick={() => setShowCreateRouteDialog(false)}
                             disabled={actionLoading}
+                            className="min-h-[44px]"
                         >
                             Cancelar
                         </Button>
                         <Button
                             onClick={handleCreateRoute}
                             disabled={actionLoading || !selectedDriver}
+                            className="min-h-[44px] bg-blue-600 hover:bg-blue-700"
                         >
                             {actionLoading ? 'Creando...' : 'Crear Ruta'}
                         </Button>

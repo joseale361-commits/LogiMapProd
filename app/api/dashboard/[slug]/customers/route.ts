@@ -16,6 +16,7 @@ interface CustomerAddress {
     city: string;
     location: any;
     is_default: boolean;
+    zone_name: string | null;
 }
 
 interface CustomerProfile {
@@ -69,7 +70,8 @@ export async function GET(
                         street_address,
                         city,
                         location,
-                        is_default
+                        is_default,
+                        zone_name
                     )
                 )
             `)
@@ -163,7 +165,8 @@ export async function GET(
                 address: defaultAddress ? {
                     street_address: defaultAddress.street_address,
                     city: defaultAddress.city,
-                    location: location
+                    location: location,
+                    zone_name: defaultAddress.zone_name
                 } : null,
                 pin_status: status
             };

@@ -32,8 +32,8 @@ export function DistributorCard({ id, name, slug, logo_url, isFavorite = false }
                 setFavorite(result.isFavorite);
                 toast.success(result.message || 'Actualizado correctamente');
             } else {
-                toast.error(result.error || 'Error al actualizar favoritos');
-                console.error('Toggle favorite error:', result.error);
+                toast.error(result.message || 'Error al actualizar favoritos');
+                console.error('Toggle favorite error:', result.message);
             }
         } catch (error) {
             toast.error('Error inesperado');

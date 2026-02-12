@@ -8,16 +8,16 @@ import { getCategoriesByDistributorId } from '@/lib/queries/products';
 import { ProductForm } from '@/components/products/ProductForm';
 
 interface PageProps {
-    params: Promise<{
+    params: {
         slug: string;
-    }>;
+    };
 }
 
 /**
  * Product creation page.
  */
 export default async function NewProductPage({ params }: PageProps) {
-    const { slug } = await params;
+    const { slug } = params;
 
     // Get distributor
     const distributor = await getDistributorBySlug(slug);

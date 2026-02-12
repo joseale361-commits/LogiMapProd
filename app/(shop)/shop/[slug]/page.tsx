@@ -4,13 +4,13 @@ import { ShopStorefront } from '@/components/shop/ShopStorefront';
 import { Package } from 'lucide-react';
 
 interface ShopPageProps {
-    params: Promise<{
+    params: {
         slug: string;
-    }>;
+    };
 }
 
 export default async function ShopPage({ params }: ShopPageProps) {
-    const { slug } = await params;
+    const { slug } = params;
     const shopData = await getShopData(slug);
 
     if (!shopData) {

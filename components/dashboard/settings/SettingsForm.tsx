@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect, useActionState, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
+import { useFormState, useFormStatus } from 'react-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
@@ -49,6 +50,18 @@ interface SettingsFormProps {
 
 const libraries: Libraries = ['places'];
 
+// Submit button component that uses useFormStatus for pending state
+function SubmitButton() {
+    const { pending } = useFormStatus();
+
+    return (
+        <Button type="submit" disabled={pending} className="gap-2">
+            {pending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+            {pending ? 'Guardando...' : 'Guardar Cambios'}
+        </Button>
+    );
+}
+
 export default function SettingsForm({
     initialLat,
     initialLng,
@@ -62,7 +75,7 @@ export default function SettingsForm({
     warehouse_address
 }: SettingsFormProps) {
     const { toast } = useToast();
-    const [formState, formAction, isPending] = useActionState(updateSettings, null);
+    const [formState, formAction] = useFormState(updateSettings, null);
 
     // Location state - use explicit props
     const [location, setLocation] = useState<{ lat: number | null; lng: number | null }>({
@@ -434,10 +447,7 @@ export default function SettingsForm({
             </div>
 
             <div className="flex justify-end mt-6">
-                <Button type="submit" disabled={isPending} className="gap-2">
-                    {isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-                    {isPending ? 'Guardando...' : 'Guardar Cambios'}
-                </Button>
+                <SubmitButton />
             </div>
         </form>
     );

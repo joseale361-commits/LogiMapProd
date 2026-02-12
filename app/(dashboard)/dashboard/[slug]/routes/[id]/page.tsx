@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useParams } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -8,21 +9,19 @@ import { ArrowLeft, DollarSign, Calendar, Truck, User } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { formatCurrency, formatDate } from '@/lib/utils';
 
-interface PageProps {
-    params: Promise<{
-        slug: string;
-        id: string;
-    }>;
-}
+interface PageProps { }
 
-export default function RouteDetailPage({ params }: PageProps) {
+export default function RouteDetailPage() {
+    const params = useParams();
+    const slug = params?.slug as string;
+    const id = params?.id as string;
+    const router = useRouter();
+
     const [route, setRoute] = useState<any>(null);
     const [stops, setStops] = useState<any[]>([]);
     const [payments, setPayments] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
-    const [slug, setSlug] = useState<string>('');
     const [processing, setProcessing] = useState(false);
-    const router = useRouter();
 
     const fetchData = async (slug: string, id: string) => {
         try {
@@ -44,11 +43,10 @@ export default function RouteDetailPage({ params }: PageProps) {
     };
 
     useEffect(() => {
-        params.then(async ({ slug, id }) => {
-            setSlug(slug);
-            await fetchData(slug, id);
-        });
-    }, [params]);
+        if (slug && id) {
+            fetchData(slug, id);
+        }
+    }, [slug, id]);
 
     const handleFinishRoute = async () => {
         if (!confirm('¿Estás seguro de que deseas liquidar y finalizar esta ruta? Esta acción no se puede deshacer.')) return;

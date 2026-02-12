@@ -9,13 +9,13 @@ import Link from 'next/link';
 import { cancelOrderAction } from '@/lib/actions/orders';
 
 interface OrderDetailPageProps {
-    params: Promise<{
+    params: {
         id: string;
-    }>
+    }
 }
 
 export default async function OrderDetailPage({ params }: OrderDetailPageProps) {
-    const { id } = await params;
+    const { id } = params;
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
 

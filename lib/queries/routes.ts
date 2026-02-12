@@ -95,12 +95,12 @@ export async function getDriversByDistributorId(distributorId: string) {
 
     console.log('[getDriversByDistributorId] Buscando choferes para:', distributorId);
 
-    // 1. Obtener IDs de usuarios con rol 'driver'
+    // 1. Obtener IDs de usuarios con rol 'staff' (unified from 'driver')
     const { data: userRoles, error: rolesError } = await supabase
         .from('distributor_users')
         .select('user_id')
         .eq('distributor_id', distributorId)
-        .eq('role', 'driver')
+        .eq('role', 'staff')
         .eq('is_active', true);
     if (rolesError) {
         console.error('[getDriversByDistributorId] Error roles:', rolesError);

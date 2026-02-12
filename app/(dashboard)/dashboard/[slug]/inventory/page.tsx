@@ -1,5 +1,5 @@
 import { notFound } from 'next/navigation';
-import { Plus, Pencil, Trash2, Package, FileSpreadsheet } from 'lucide-react';
+import { Plus, Pencil, Trash2, Package, FileSpreadsheet, Filter } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -22,13 +22,18 @@ interface PageProps {
     params: {
         slug: string;
     };
+    searchParams: {
+        filter?: string;
+    };
 }
 
 /**
- * Products management page for a distributor.
+ * Inventory page for a distributor with filtering capabilities.
+ * Supports 'low_stock' filter to show only products with stock < 10.
  */
-export default async function ProductsPage({ params }: PageProps) {
+export default async function InventoryPage({ params, searchParams }: PageProps) {
     const { slug } = params;
+    const { filter } = searchParams;
 
     // Get distributor by slug
     const distributor = await getDistributorBySlug(slug);
@@ -37,42 +42,80 @@ export default async function ProductsPage({ params }: PageProps) {
     }
 
     // Fetch products with aggregated variant data
-    const products = await getProductsByDistributorId(distributor.id);
+    const allProducts = await getProductsByDistributorId(distributor.id);
+
+    // Apply filter based on searchParams
+    const LOW_STOCK_THRESHOLD = 10;
+    const showLowStockOnly = filter === 'low_stock';
+
+    const products = showLowStockOnly
+        ? allProducts.filter((p) => p.is_active && (p.total_stock || 0) < LOW_STOCK_THRESHOLD)
+        : allProducts;
+
+    // Calculate low stock count for the indicator
+    const lowStockCount = allProducts.filter(
+        (p) => p.is_active && (p.total_stock || 0) < LOW_STOCK_THRESHOLD
+    ).length;
 
     return (
         <div className="space-y-6">
             {/* Header */}
             <div className="flex items-center justify-between">
                 <div>
-                    <h1 className="text-3xl font-bold text-gray-900">Productos</h1>
+                    <h1 className="text-3xl font-bold text-gray-900">Inventario</h1>
                     <p className="text-gray-600 mt-2">
-                        Gestiona el catálogo de productos de tu distribuidora
+                        {showLowStockOnly
+                            ? `Mostrando ${products.length} producto${products.length !== 1 ? 's' : ''} con stock bajo`
+                            : 'Gestiona el inventario de tu distribuidora'}
                     </p>
                 </div>
                 <div className="flex gap-2">
-                    <ReplenishStockButton distributorId={distributor.id} slug={slug} />
+                    <Link href={`/dashboard/${slug}/products`}>
+                        <Button variant="outline" className="gap-2">
+                            <Package className="w-4 h-4" />
+                            Ver Productos
+                        </Button>
+                    </Link>
                     <Link href={`/dashboard/${slug}/inventory/import`}>
                         <Button variant="outline" className="gap-2">
                             <FileSpreadsheet className="w-4 h-4" />
                             Importar Excel
                         </Button>
                     </Link>
-                    <Link href={`/dashboard/${slug}/products/new`}>
-                        <Button className="gap-2">
-                            <Plus className="w-4 h-4" />
-                            Crear Producto
-                        </Button>
-                    </Link>
                 </div>
+            </div>
+
+            {/* Filter Tabs */}
+            <div className="flex gap-2">
+                <Link href={`/dashboard/${slug}/inventory`}>
+                    <Button
+                        variant={!showLowStockOnly ? 'default' : 'outline'}
+                        className="gap-2"
+                    >
+                        <Package className="w-4 h-4" />
+                        Todos los productos ({allProducts.length})
+                    </Button>
+                </Link>
+                <Link href={`/dashboard/${slug}/inventory?filter=low_stock`}>
+                    <Button
+                        variant={showLowStockOnly ? 'default' : 'outline'}
+                        className={`gap-2 ${showLowStockOnly ? 'bg-orange-600 hover:bg-orange-700' : ''}`}
+                    >
+                        <Filter className="w-4 h-4" />
+                        Stock bajo ({lowStockCount})
+                    </Button>
+                </Link>
             </div>
 
             {/* Products Table or Empty State */}
             {products.length === 0 ? (
-                <EmptyState />
+                <EmptyState showLowStock={showLowStockOnly} slug={slug} />
             ) : (
                 <Card>
                     <CardHeader>
-                        <CardTitle>Lista de Productos</CardTitle>
+                        <CardTitle>
+                            {showLowStockOnly ? 'Productos con Stock Bajo' : 'Lista de Productos'}
+                        </CardTitle>
                     </CardHeader>
                     <CardContent>
                         <Table>
@@ -164,7 +207,7 @@ export default async function ProductsPage({ params }: PageProps) {
                                                 <DeleteProductButton
                                                     productId={product.id}
                                                     productName={product.name}
-                                                    path={`/dashboard/${slug}/products`}
+                                                    path={`/dashboard/${slug}/inventory${showLowStockOnly ? '?filter=low_stock' : ''}`}
                                                 />
                                             </div>
                                         </TableCell>
@@ -180,9 +223,32 @@ export default async function ProductsPage({ params }: PageProps) {
 }
 
 /**
- * Empty state component when no products exist.
+ * Empty state component when no products exist or filter returns no results.
  */
-function EmptyState() {
+function EmptyState({ showLowStock, slug }: { showLowStock: boolean; slug: string }) {
+    if (showLowStock) {
+        return (
+            <Card>
+                <CardContent className="flex flex-col items-center justify-center py-16">
+                    <div className="rounded-full bg-green-100 p-6 mb-4">
+                        <Package className="w-12 h-12 text-green-600" />
+                    </div>
+                    <h3 className="text-xl font-semibold text-gray-900 mb-2">
+                        ¡Excelente! Sin productos con stock bajo
+                    </h3>
+                    <p className="gray-600 text-center mb-6 max-w-sm">
+                        Todos tus productos tienen niveles de inventario saludables.
+                    </p>
+                    <Link href={`/dashboard/${slug}/inventory`}>
+                        <Button variant="outline" className="gap-2">
+                            Ver todos los productos
+                        </Button>
+                    </Link>
+                </CardContent>
+            </Card>
+        );
+    }
+
     return (
         <Card>
             <CardContent className="flex flex-col items-center justify-center py-16">
@@ -193,9 +259,9 @@ function EmptyState() {
                     No tienes productos aún
                 </h3>
                 <p className="text-gray-600 text-center mb-6 max-w-sm">
-                    Comienza a construir tu catálogo agregando tu primer producto.
+                    Comienza a construir tu inventario agregando tu primer producto.
                 </p>
-                <Link href="products/new">
+                <Link href={`/dashboard/${slug}/products/new`}>
                     <Button className="gap-2">
                         <Plus className="w-4 h-4" />
                         Crear Primer Producto

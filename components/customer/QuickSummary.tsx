@@ -48,12 +48,12 @@ export function QuickSummary({ summary }: QuickSummaryProps) {
                             </div>
                             <div className="flex justify-between items-center">
                                 <span className="text-sm text-gray-500">Total:</span>
-                                <span className="font-semibold text-gray-900">{formatPrice(summary.lastOrder.total)}</span>
+                                <span className="font-semibold text-gray-900">{formatPrice(summary.lastOrder.total_amount)}</span>
                             </div>
                             <div className="flex justify-between items-center">
                                 <span className="text-sm text-gray-500">Fecha:</span>
                                 <span className="text-sm text-gray-700">
-                                    {new Date(summary.lastOrder.created_at).toLocaleDateString('es-CO')}
+                                    {summary.lastOrder.created_at ? new Date(summary.lastOrder.created_at).toLocaleDateString('es-CO') : 'N/A'}
                                 </span>
                             </div>
                         </div>

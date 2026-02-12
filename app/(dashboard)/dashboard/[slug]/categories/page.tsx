@@ -4,13 +4,13 @@ import { CategoryListClient } from '@/components/categories/CategoryListClient';
 import { adminClient } from '@/lib/supabase/admin';
 
 interface PageProps {
-    params: Promise<{
+    params: {
         slug: string;
-    }>;
+    };
 }
 
 export default async function CategoriesPage({ params }: PageProps) {
-    const { slug } = await params;
+    const { slug } = params;
     const supabase = await createSupabaseServerClient();
 
     // Auth Check

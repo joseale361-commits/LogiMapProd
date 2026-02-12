@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useParams } from 'next/navigation';
 import { ArrowLeft, MapPin, CreditCard, Truck, ShoppingBag, Plus, User, AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -33,11 +33,7 @@ const AddressModal = dynamic(
 
 type Address = Database['public']['Tables']['addresses']['Row'];
 
-interface CheckoutPageProps {
-    params: Promise<{
-        slug: string;
-    }>;
-}
+interface CheckoutPageProps { }
 
 interface DeliverySettings {
     free_radius_km: number;
@@ -46,10 +42,11 @@ interface DeliverySettings {
     min_order_amount: number;
 }
 
-export default function CheckoutPage({ params }: CheckoutPageProps) {
+export default function CheckoutPage() {
     const router = useRouter();
+    const params = useParams();
     const { items, clearCart } = useCart();
-    const [slug, setSlug] = useState<string>('');
+    const slug = params?.slug as string;
     const [addresses, setAddresses] = useState<Address[]>([]);
     const [selectedAddressId, setSelectedAddressId] = useState<string>('');
     const [paymentMethod, setPaymentMethod] = useState<'cash' | 'transfer' | 'credit'>('cash');
@@ -300,8 +297,8 @@ export default function CheckoutPage({ params }: CheckoutPageProps) {
 
     // Initial load
     useEffect(() => {
-        params.then(async ({ slug: paramSlug }) => {
-            setSlug(paramSlug);
+        async function fetchInitialData() {
+            if (!slug) return;
 
             const supabase = createClient();
             const { data: { user } } = await supabase.auth.getUser();
@@ -310,7 +307,7 @@ export default function CheckoutPage({ params }: CheckoutPageProps) {
                 const { data: distributor } = await supabase
                     .from('distributors')
                     .select('id')
-                    .eq('slug', paramSlug)
+                    .eq('slug', slug)
                     .eq('is_active', true)
                     .single();
 
@@ -328,7 +325,9 @@ export default function CheckoutPage({ params }: CheckoutPageProps) {
                     }
                 }
             }
-        });
+        }
+
+        fetchInitialData();
     }, [params, loadAddresses, loadAddressesForPOS, loadCreditInfo]);
 
     // Handle submit

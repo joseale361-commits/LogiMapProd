@@ -3,6 +3,25 @@ import { Database } from '@/types/supabase';
 
 export type Distributor = Database['public']['Tables']['distributors']['Row'];
 
+export interface DistributorCardData {
+    id: string;
+    name: string;
+    slug: string;
+    logo_url: string | null;
+    is_active: boolean | null;
+}
+
+export interface CustomerSummary {
+    lastOrder: {
+        order_number: string;
+        status: string;
+        total_amount: number;
+        created_at: string | null;
+        distributors: { name: string };
+    } | null;
+    totalDebt: number;
+}
+
 // Obtener distribuidoras favoritas (Linked)
 export async function fetchLinkedDistributors() {
     const supabase = await createClient();

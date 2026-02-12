@@ -1,6 +1,7 @@
 'use client';
 
-import { use, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
+import { useParams } from 'next/navigation';
 import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
@@ -24,8 +25,9 @@ interface GeoData {
     };
 }
 
-export default function NavigatePage({ params }: { params: Promise<{ stopId: string }> }) {
-    const { stopId } = use(params);
+export default function NavigatePage() {
+    const params = useParams();
+    const stopId = params?.stopId as string;
     const supabase = createClient();
 
     const [stop, setStop] = useState<any>(null);

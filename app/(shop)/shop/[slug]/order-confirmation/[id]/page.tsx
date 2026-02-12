@@ -11,16 +11,13 @@ import { Database } from '@/types/supabase';
 type Order = Database['public']['Tables']['orders']['Row'];
 type OrderItem = Database['public']['Tables']['order_items']['Row'];
 
-interface OrderConfirmationPageProps {
-    params: Promise<{
-        slug: string;
-        id: string;
-    }>;
-}
+interface OrderConfirmationPageProps { }
 
-export default function OrderConfirmationPage({ params }: OrderConfirmationPageProps) {
+export default function OrderConfirmationPage() {
     const router = useRouter();
-    const [slug, setSlug] = useState<string>('');
+    const params = useParams();
+    const slug = params?.slug as string;
+    const id = params?.id as string;
     const [orderId, setOrderId] = useState<string>('');
     const [order, setOrder] = useState<Order | null>(null);
     const [orderItems, setOrderItems] = useState<OrderItem[]>([]);
@@ -28,12 +25,11 @@ export default function OrderConfirmationPage({ params }: OrderConfirmationPageP
     const [error, setError] = useState<string | null>(null);
 
     useEffect(() => {
-        params.then(({ slug, id }) => {
-            setSlug(slug);
+        if (id) {
             setOrderId(id);
             loadOrderDetails(id);
-        });
-    }, [params]);
+        }
+    }, [id]);
 
     const loadOrderDetails = async (id: string) => {
         const supabase = createClient();

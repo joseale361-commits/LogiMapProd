@@ -6,13 +6,13 @@ import { getDistributorBySlug, getDistributorSettingsBySlug } from '@/lib/supaba
 import SettingsForm from '@/components/dashboard/settings/SettingsForm';
 
 interface PageProps {
-    params: Promise<{
+    params: {
         slug: string;
-    }>;
+    };
 }
 
 export default async function SettingsPage({ params }: PageProps) {
-    const { slug } = await params;
+    const { slug } = params;
 
     // Get distributor data server-side (basic fields from table)
     const distributor = await getDistributorBySlug(slug);

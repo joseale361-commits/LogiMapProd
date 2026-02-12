@@ -1,12 +1,13 @@
 "use client";
 
 import { useState, useEffect } from 'react';
+import { useParams } from 'next/navigation';
 import dynamic from 'next/dynamic';
 import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Users, Map, LayoutList, AlertCircle, CheckCircle, Clock, TrendingDown, Plus } from 'lucide-react';
+import { Users, Map, LayoutList, AlertCircle, CheckCircle, Clock, TrendingDown, Plus, MapPin } from 'lucide-react';
 import CustomersTable from './CustomersTable';
 
 const CustomersMap = dynamic(
@@ -14,6 +15,14 @@ const CustomersMap = dynamic(
     {
         ssr: false,
         loading: () => <div className="h-96 bg-gray-100 flex items-center justify-center rounded-lg">Cargando mapa...</div>
+    }
+);
+
+const ZoneMap = dynamic(
+    () => import('./ZoneMap'),
+    {
+        ssr: false,
+        loading: () => <div className="h-[600px] bg-gray-100 flex items-center justify-center rounded-lg">Cargando mapa de zonas...</div>
     }
 );
 
@@ -32,7 +41,21 @@ interface Customer {
         street_address: string;
         city: string | null;
         location: { lat: number; lng: number } | null;
+        zone_name: string | null;
     } | null;
+}
+
+interface ZoneCustomer {
+    id: string;
+    full_name: string;
+    phone: string | null;
+    email: string | null;
+    address: {
+        street_address: string;
+        city: string | null;
+        zone_name: string | null;
+        location?: { lat: number; lng: number } | null;
+    };
 }
 
 interface CustomersResponse {
@@ -50,14 +73,11 @@ interface CustomersResponse {
     };
 }
 
-interface PageProps {
-    params: Promise<{
-        slug: string;
-    }>;
-}
+interface PageProps { }
 
-export default function CustomersPage({ params }: PageProps) {
-    const [slug, setSlug] = useState<string>('');
+export default function CustomersPage() {
+    const params = useParams();
+    const slug = params?.slug as string;
     const router = useRouter();
     const [customers, setCustomers] = useState<Customer[]>([]);
     const [summary, setSummary] = useState<CustomersResponse['summary'] | null>(null);
@@ -65,13 +85,21 @@ export default function CustomersPage({ params }: PageProps) {
     const [filter, setFilter] = useState<'all' | 'inactive'>('all');
     const [activeTab, setActiveTab] = useState('table');
     const [centerOnCustomerId, setCenterOnCustomerId] = useState<string | null>(null);
+    const [heatmapLoading, setHeatmapLoading] = useState(false);
+    const [zoneCustomers, setZoneCustomers] = useState<ZoneCustomer[]>([]);
 
     useEffect(() => {
-        params.then(({ slug: paramSlug }) => {
-            setSlug(paramSlug);
-            fetchCustomers(paramSlug, filter);
-        });
-    }, [params, filter]);
+        if (slug) {
+            fetchCustomers(slug, filter);
+        }
+    }, [slug, filter]);
+
+    // Fetch heatmap data when zones tab is selected
+    useEffect(() => {
+        if (activeTab === 'zones' && slug && zoneCustomers.length === 0) {
+            fetchHeatmapData(slug);
+        }
+    }, [activeTab, slug]);
 
     const fetchCustomers = async (distributorSlug: string, filterValue: string) => {
         try {
@@ -94,6 +122,58 @@ export default function CustomersPage({ params }: PageProps) {
     const handleViewOnMap = (customerId: string) => {
         setCenterOnCustomerId(customerId);
         setActiveTab('map');
+    };
+
+    // Fetch heatmap data with zone information
+    const fetchHeatmapData = async (distributorSlug: string) => {
+        try {
+            setHeatmapLoading(true);
+            const response = await fetch(`/api/dashboard/${distributorSlug}/crm/heatmap`);
+            const data = await response.json();
+
+            if (data.success && data.heatmapPoints) {
+                // Transform heatmap points to ZoneCustomer format
+                const transformedCustomers: ZoneCustomer[] = data.heatmapPoints.map((point: any) => ({
+                    id: point.id,
+                    full_name: point.full_name,
+                    phone: point.phone,
+                    email: point.email,
+                    address: {
+                        street_address: point.address?.street_address || '',
+                        city: point.address?.city || null,
+                        zone_name: point.address?.zone_name || null,
+                        location: point.location || null
+                    }
+                }));
+                setZoneCustomers(transformedCustomers);
+            }
+        } catch (error) {
+            console.error('Error fetching heatmap data:', error);
+        } finally {
+            setHeatmapLoading(false);
+        }
+    };
+
+    // Handle zone update
+    const handleZoneUpdate = async (customerId: string, newZone: string) => {
+        try {
+            const response = await fetch(`/api/dashboard/${slug}/customers/${customerId}/zone`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ zone_name: newZone })
+            });
+
+            if (response.ok) {
+                // Refresh heatmap data after zone update
+                await fetchHeatmapData(slug);
+                // Also refresh customers list
+                await fetchCustomers(slug, filter);
+            } else {
+                console.error('Failed to update zone');
+            }
+        } catch (error) {
+            console.error('Error updating zone:', error);
+        }
     };
 
     if (loading && customers.length === 0) {
@@ -210,6 +290,10 @@ export default function CustomersPage({ params }: PageProps) {
                         <Map className="w-4 h-4" />
                         Mapa de Calor
                     </TabsTrigger>
+                    <TabsTrigger value="zones" className="flex items-center gap-2">
+                        <MapPin className="w-4 h-4" />
+                        Mapa de Zonas
+                    </TabsTrigger>
                 </TabsList>
 
                 <TabsContent value="table">
@@ -244,6 +328,42 @@ export default function CustomersPage({ params }: PageProps) {
                                     height="h-[600px]"
                                     centerOnCustomerId={centerOnCustomerId}
                                 />
+                            </div>
+                        </CardContent>
+                    </Card>
+                </TabsContent>
+
+                <TabsContent value="zones">
+                    <Card>
+                        <CardHeader>
+                            <CardTitle className="text-lg flex items-center gap-2">
+                                <MapPin className="w-5 h-5" />
+                                Mapa de Zonas de Ventas
+                            </CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                            <div className="relative">
+                                {!heatmapLoading && zoneCustomers.length > 0 ? (
+                                    <ZoneMap
+                                        customers={zoneCustomers}
+                                        height="h-[600px]"
+                                        onZoneUpdate={handleZoneUpdate}
+                                    />
+                                ) : heatmapLoading ? (
+                                    <div className="h-[600px] bg-gray-100 flex items-center justify-center rounded-lg">
+                                        <div className="text-center">
+                                            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-600 mx-auto"></div>
+                                            <p className="mt-2 text-gray-500">Cargando datos de zonas...</p>
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <div className="h-[600px] bg-gray-100 flex items-center justify-center rounded-lg">
+                                        <div className="text-center text-gray-500 p-4">
+                                            <p className="text-lg font-medium">No hay clientes con ubicación.</p>
+                                            <p className="text-sm mt-1">Los clientes necesitan una dirección con geolocalización.</p>
+                                        </div>
+                                    </div>
+                                )}
                             </div>
                         </CardContent>
                     </Card>

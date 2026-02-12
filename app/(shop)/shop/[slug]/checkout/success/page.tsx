@@ -1,32 +1,26 @@
 "use client"
 
 import { useEffect, useState } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useRouter, useParams, useSearchParams } from 'next/navigation';
 import { CheckCircle, Package, ArrowLeft, Home } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 
-interface SuccessPageProps {
-    params: Promise<{
-        slug: string;
-    }>;
-}
+interface SuccessPageProps { }
 
-export default function OrderSuccessPage({ params }: SuccessPageProps) {
+export default function OrderSuccessPage() {
     const router = useRouter();
+    const params = useParams();
     const searchParams = useSearchParams();
-    const [slug, setSlug] = useState<string>('');
+    const slug = params.slug as string;
     const [orderId, setOrderId] = useState<string>('');
 
     useEffect(() => {
-        params.then(({ slug }) => {
-            setSlug(slug);
-        });
         const orderIdParam = searchParams.get('orderId');
         if (orderIdParam) {
             setOrderId(orderIdParam);
         }
-    }, [params, searchParams]);
+    }, [searchParams]);
 
     const handleContinueShopping = () => {
         router.push(`/shop/${slug}`);
