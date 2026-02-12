@@ -1,6 +1,6 @@
-import withPWAInit from "@ducanh2912/next-pwa";
+import withPWA from "@ducanh2912/next-pwa";
 
-const withPWA = withPWAInit.default({
+const pwaConfig = withPWA({
     dest: "public",
     cacheOnFrontEndNav: true,
     aggressiveFrontEndNavCaching: true,
@@ -22,4 +22,4 @@ const nextConfig = {
     },
 };
 
-export default withPWA(nextConfig);
+export default pwaConfig(nextConfig);
