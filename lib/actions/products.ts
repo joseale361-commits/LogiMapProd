@@ -61,8 +61,6 @@ export async function updateProduct(id: string, data: any) {
                     const stockVirtual = parseInt(String(variant.stock_virtual || 0), 10);
                     const targetStock = parseInt(String(variant.target_stock || 0), 10);
 
-                    console.log('Inserting new variant:', { stock_virtual: stockVirtual, target_stock: targetStock });
-
                     const { error: insertError } = await adminClient
                         .from('product_variants')
                         .insert({
@@ -90,8 +88,6 @@ export async function updateProduct(id: string, data: any) {
                     const stockVirtual = parseInt(String(variant.stock_virtual || 0), 10);
                     const targetStock = parseInt(String(variant.target_stock || 0), 10);
 
-                    console.log('Updating variant:', variant.id, { stock_virtual: stockVirtual, target_stock: targetStock });
-
                     const variantUpdate: any = {
                         sku: variant.sku,
                         price: variant.price,
@@ -111,8 +107,6 @@ export async function updateProduct(id: string, data: any) {
                         .from('product_variants')
                         .update(variantUpdate)
                         .eq('id', variant.id);
-
-                    console.log('Variant update result:', variantError);
 
                     if (variantError) throw new Error(`Error updating variant: ${variantError.message}`);
                 }

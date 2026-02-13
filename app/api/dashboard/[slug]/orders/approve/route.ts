@@ -9,7 +9,7 @@ export async function POST(
     try {
         const { slug } = await params;
         const body = await request.json();
-        const { orderId } = body;
+        const { orderId, invoiceNumber } = body;
 
         if (!orderId) {
             return NextResponse.json(
@@ -37,7 +37,7 @@ export async function POST(
         }
 
         // Approve order
-        const result = await approveOrder(orderId, user.id);
+        const result = await approveOrder(orderId, user.id, invoiceNumber);
 
         return NextResponse.json(result);
     } catch (error) {

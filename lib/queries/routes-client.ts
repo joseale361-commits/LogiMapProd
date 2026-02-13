@@ -17,7 +17,8 @@ export async function getActiveRoutes(distributorId: string) {
             stops:route_stops (id, status)
         `)
         .eq('distributor_id', distributorId)
-        .neq('status', 'completed')
+        .not('status', 'eq', 'completed')
+        .not('status', 'eq', 'finished')
         .order('created_at', { ascending: false });
 
     if (error) {

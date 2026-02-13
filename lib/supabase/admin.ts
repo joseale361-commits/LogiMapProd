@@ -27,3 +27,6 @@ export const adminClient = new Proxy({} as any, {
     return (getAdminClient() as any)[prop];
   }
 });
+
+// Export createAdminClient for explicit admin client creation
+export const createAdminClient = getAdminClient;

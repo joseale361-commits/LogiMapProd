@@ -53,7 +53,7 @@ export async function GET(
                 )
             `)
             .eq('distributor_id', distributor.id)
-            .in('status', ['pending_approval', 'approved'])
+            .in('status', ['pending', 'approved', 'processing', 'in_transit', 'delivered'])
             .order('created_at', { ascending: false });
 
         if (ordersError) {

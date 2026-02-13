@@ -76,7 +76,10 @@ export default function RouteDetailPage() {
     // 1. Total Collected: Sum of payments recorded by driver
     const totalCollected = payments.reduce((sum, p) => sum + Number(p.amount), 0);
 
-    // 2. Total Expected: 
+    // 2. Total Expected: Only count COMPLETED stops (delivered or failed)
+    // For delivered orders: expected is the total_amount (what should have been collected)
+    // For failed orders with cash payment: expected is 0 (order returns to pool)
+    // Credit orders: no collection expected
     let totalExpected = 0;
 
     // Helper to find payment for an order
@@ -84,18 +87,21 @@ export default function RouteDetailPage() {
         return payments.filter(p => p.order_id === orderId).reduce((sum, p) => sum + Number(p.amount), 0);
     };
 
+    // Only process delivered stops for the expected amount
     stops.forEach(stop => {
+        // Only count delivered stops
+        if (stop.status !== 'delivered') return;
+
         const order = stop.orders;
         if (!order) return;
 
-        const collected = getPaymentForOrder(order.id);
-
+        // For delivered orders, expected amount is the total order amount
+        // (this is what should have been collected)
         if (order.payment_method === 'credit') {
-            // No collection expected
+            // Credit orders - no collection expected
         } else {
-            if (order.balance_due > 0 || collected > 0) {
-                totalExpected += (order.balance_due + collected);
-            }
+            // Cash payments - expected is total_amount
+            totalExpected += Number(order.total_amount) || 0;
         }
     });
 
@@ -150,7 +156,7 @@ export default function RouteDetailPage() {
                         <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-100">
                             <p className="text-sm font-medium text-gray-500">Total a Recaudar</p>
                             <p className="text-2xl font-bold text-gray-900">{formatCurrency(totalExpected)}</p>
-                            <p className="text-xs text-gray-400 mt-1">Pedidos en efectivo</p>
+                            <p className="text-xs text-gray-400 mt-1">Pedidos entregados</p>
                         </div>
                         <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-100">
                             <p className="text-sm font-medium text-gray-500">Total Recaudado</p>
@@ -165,7 +171,7 @@ export default function RouteDetailPage() {
                                 </p>
                                 <p className="text-xs text-gray-400 mt-1">Pendiente de entregar</p>
                             </div>
-                            {route.status !== 'finished' && (
+                            {route.status !== 'completed' && (
                                 <Button
                                     className="mt-4 w-full bg-blue-600 hover:bg-blue-700 text-white"
                                     onClick={handleFinishRoute}
@@ -174,7 +180,7 @@ export default function RouteDetailPage() {
                                     {processing ? 'Procesando...' : 'Liquidar y Finalizar Ruta'}
                                 </Button>
                             )}
-                            {route.status === 'finished' && (
+                            {route.status === 'completed' && (
                                 <div className="mt-4 w-full text-center text-sm text-green-600 font-medium py-2 bg-green-50 rounded">
                                     Ruta Liquidada el {formatDate(route.finished_at)}
                                 </div>

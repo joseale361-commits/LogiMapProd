@@ -86,21 +86,21 @@ export function ImageUpload({
 
         try {
             // Convert blob to file
-            const croppedFile = new File([croppedBlob], `cropped-${Date.now()}.jpg`, {
-                type: 'image/jpeg',
+            const croppedFile = new File([croppedBlob], `cropped-${Date.now()}.webp`, {
+                type: 'image/webp',
             });
 
             // Compress the cropped image
             const options = {
-                maxSizeMB: 1,
-                maxWidthOrHeight: 1024,
+                maxSizeMB: 0.5,
+                maxWidthOrHeight: 400,
                 useWebWorker: true,
-                fileType: 'image/jpeg'
+                fileType: 'image/webp'
             };
             const compressedFile = await imageCompression(croppedFile, options);
 
             const supabase = createClient();
-            const fileExt = 'jpg';
+            const fileExt = 'webp';
             const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
             const filePath = `${folder}/${fileName}`;
 

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from 'react';
-import { useParams } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -9,7 +9,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
-import { Check, X, MapPin, Clock, User, Package, AlertCircle, Store, MessageCircle } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { Check, X, MapPin, Clock, User, Package, AlertCircle, Store, MessageCircle, Eye } from 'lucide-react';
 import dynamic from 'next/dynamic';
 
 // Dynamically import Leaflet components to avoid SSR issues
@@ -48,12 +49,14 @@ interface Order {
     delivery_type: 'delivery' | 'pickup';
     pickup_time: string | null;
     payment_method: string;
+    invoice_number: string | null;
 }
 
 interface PageProps { }
 
 export default function OrdersPage() {
     const params = useParams();
+    const router = useRouter();
     const slug = params?.slug as string;
     const [orders, setOrders] = useState<Order[]>([]);
     const [loading, setLoading] = useState(true);
@@ -66,6 +69,7 @@ export default function OrdersPage() {
     const [actionLoading, setActionLoading] = useState(false);
     const [notification, setNotification] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
     const [viewFilter, setViewFilter] = useState<'pending' | 'pickup'>('pending');
+    const [invoiceNumbers, setInvoiceNumbers] = useState<Record<string, string>>({});
 
     useEffect(() => {
         if (slug) {
@@ -79,7 +83,10 @@ export default function OrdersPage() {
             const response = await fetch(`/api/dashboard/${distributorSlug}/orders`);
             const data = await response.json();
 
+            console.log('Orders Fetched:', data);
+
             if (data.success) {
+                console.log('Orders Data:', data.orders);
                 setOrders(data.orders);
             } else {
                 showNotification('error', data.error || 'Error al cargar pedidos');
@@ -93,16 +100,31 @@ export default function OrdersPage() {
     };
 
     const handleApprove = async (orderId: string) => {
+        const invoiceNumber = invoiceNumbers[orderId]?.trim();
+
+        // Validate invoice number is required
+        if (!invoiceNumber) {
+            showNotification('error', 'Por favor ingrese el número de factura/ticket antes de aprobar');
+            return;
+        }
+
         try {
             setActionLoading(true);
             const response = await fetch(`/api/dashboard/${slug}/orders/approve`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ orderId }),
+                body: JSON.stringify({ orderId, invoiceNumber }),
             });
             const data = await response.json();
 
             if (data.success) {
+                // Clear the invoice number from state after approval
+                setInvoiceNumbers(prev => {
+                    const updated = { ...prev };
+                    delete updated[orderId];
+                    return updated;
+                });
+
                 // Find the approved order to show WhatsApp notification
                 const approvedOrder = orders.find(o => o.id === orderId);
                 if (approvedOrder && approvedOrder.customer.phone) {
@@ -245,8 +267,9 @@ export default function OrdersPage() {
     };
 
     const filteredOrders = orders.filter(order => {
+        console.log('Filtering order:', order.status, order.delivery_type);
         if (viewFilter === 'pending') {
-            return order.status === 'pending_approval';
+            return order.status === 'pending'; // Fixed: was 'pending_approval'
         } else {
             return order.delivery_type === 'pickup' && order.status === 'approved';
         }
@@ -271,7 +294,7 @@ export default function OrdersPage() {
                         <AlertCircle className="w-4 h-4" />
                         Pendientes
                         <Badge variant="secondary" className="ml-1 bg-white/20">
-                            {orders.filter(o => o.status === 'pending_approval').length}
+                            {orders.filter(o => o.status === 'pending').length}
                         </Badge>
                     </Button>
                     <Button
@@ -359,8 +382,34 @@ export default function OrdersPage() {
                                             </div>
                                         </div>
 
+                                        {/* Invoice Number Input - Only for pending orders */}
+                                        {viewFilter === 'pending' && order.status === 'pending' && (
+                                            <div className="mt-3">
+                                                <Label htmlFor={`invoice-${order.id}`} className="text-xs text-gray-600 mb-1 block">
+                                                    Número de Factura / POS
+                                                </Label>
+                                                <Input
+                                                    id={`invoice-${order.id}`}
+                                                    type="text"
+                                                    placeholder="Ingrese número de factura"
+                                                    value={invoiceNumbers[order.id] || ''}
+                                                    onChange={(e) => setInvoiceNumbers(prev => ({ ...prev, [order.id]: e.target.value }))}
+                                                    className="h-9 text-sm"
+                                                />
+                                            </div>
+                                        )}
+
                                         {/* Mobile Action Buttons */}
                                         <div className="flex flex-wrap gap-2">
+                                            <Button
+                                                variant="ghost"
+                                                size="sm"
+                                                onClick={() => router.push(`/dashboard/${slug}/orders/${order.id}`)}
+                                                className="min-h-[44px] flex-1"
+                                            >
+                                                <Eye className="w-4 h-4 mr-1" />
+                                                Ver
+                                            </Button>
                                             {viewFilter === 'pending' ? (
                                                 <>
                                                     <Button
@@ -435,6 +484,7 @@ export default function OrdersPage() {
                                             <TableHead>Fecha</TableHead>
                                             <TableHead>{viewFilter === 'pickup' ? 'Hora de Retiro' : 'Entrega'}</TableHead>
                                             <TableHead>Total</TableHead>
+                                            <TableHead>Factura</TableHead>
                                             <TableHead className="text-right">Acciones</TableHead>
                                         </TableRow>
                                     </TableHeader>
@@ -500,8 +550,33 @@ export default function OrdersPage() {
                                                 <TableCell>
                                                     <div className="font-medium">{formatCurrency(order.total_amount)}</div>
                                                 </TableCell>
+                                                <TableCell>
+                                                    {order.status === 'pending' ? (
+                                                        <Input
+                                                            id={`invoice-desktop-${order.id}`}
+                                                            type="text"
+                                                            placeholder="Factura #"
+                                                            value={invoiceNumbers[order.id] || ''}
+                                                            onChange={(e) => setInvoiceNumbers(prev => ({ ...prev, [order.id]: e.target.value }))}
+                                                            className="h-8 w-28 text-sm"
+                                                        />
+                                                    ) : (
+                                                        <span className="text-sm font-mono">
+                                                            {order.invoice_number || '-'}
+                                                        </span>
+                                                    )}
+                                                </TableCell>
                                                 <TableCell className="text-right">
                                                     <div className="flex items-center justify-end gap-2">
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="sm"
+                                                            onClick={() => router.push(`/dashboard/${slug}/orders/${order.id}`)}
+                                                            title="Ver detalles"
+                                                            className="min-h-[44px]"
+                                                        >
+                                                            <Eye className="w-4 h-4" />
+                                                        </Button>
                                                         {viewFilter === 'pending' ? (
                                                             <>
                                                                 <Button

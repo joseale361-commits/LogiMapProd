@@ -81,6 +81,7 @@ export default function RoutesPage() {
     const [historyDateFilter, setHistoryDateFilter] = useState<string>(new Date().toISOString().split('T')[0]);
     const [showAllHistory, setShowAllHistory] = useState(false);
     const [warehouseLocation, setWarehouseLocation] = useState<[number, number] | null>(null);
+    const [finishingRouteId, setFinishingRouteId] = useState<string | null>(null);
 
     useEffect(() => {
         if (slug) {
@@ -115,13 +116,13 @@ export default function RoutesPage() {
                 throw new Error('Distribuidor no encontrado');
             }
 
-            // 2. FETCH ORDERS from VIEW v_orders_with_geojson (filter out in_transit)
+            // 2. FETCH ORDERS from VIEW v_orders_with_geojson (APPROVED ONLY)
             console.log('[RoutesPage] Fetching orders from v_orders_with_geojson view...');
             const { data: ordersData, error: ordersError } = await supabase
                 .from('v_orders_with_geojson' as any)
-                .select('*')
+                .select('*', { count: 'exact', head: false })
                 .eq('distributor_id', distributor.id)
-                .neq('status', 'in_transit');
+                .eq('status', 'approved');
 
             if (ordersError) {
                 console.error('[RoutesPage] Orders Error:', ordersError);
@@ -330,6 +331,34 @@ export default function RoutesPage() {
         setTimeout(() => setNotification(null), 3000);
     };
 
+    const handleFinishRoute = async (routeId: string) => {
+        if (!confirm('¿Estás seguro de que deseas finalizar esta ruta? Los pedidos no entregados volverá al pool.')) {
+            return;
+        }
+
+        try {
+            setFinishingRouteId(routeId);
+            const response = await fetch(`/api/dashboard/${slug}/routes/${routeId}/finish`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' }
+            });
+
+            const result = await response.json();
+
+            if (result.success) {
+                showNotification('success', 'Ruta finalizada exitosamente');
+                fetchData(slug); // Refresh data
+            } else {
+                showNotification('error', result.error || 'Error al finalizar ruta');
+            }
+        } catch (error: any) {
+            console.error('[handleFinishRoute] Error:', error);
+            showNotification('error', 'Error al finalizar ruta');
+        } finally {
+            setFinishingRouteId(null);
+        }
+    };
+
     const formatCurrency = (amount: number) => {
         return new Intl.NumberFormat('es-CO', {
             style: 'currency',
@@ -375,7 +404,7 @@ export default function RoutesPage() {
         return [avgLat, avgLng];
     };
 
-    const historyRoutes = routes.filter(r => r.status === 'finished');
+    const historyRoutes = routes.filter(r => r.status === 'completed');
 
     // Filter history by date (default: today)
     const filteredHistoryRoutes = showAllHistory
@@ -392,14 +421,24 @@ export default function RoutesPage() {
                         Crea y asigna rutas a los choferes
                     </p>
                 </div>
-                <Button
-                    onClick={() => setShowCreateRouteDialog(true)}
-                    disabled={selectedOrders.size === 0 || loading}
-                    className="gap-2 min-h-[44px] bg-blue-600 hover:bg-blue-700 w-full sm:w-auto"
-                >
-                    <Plus className="w-4 h-4" />
-                    Crear Ruta ({selectedOrders.size})
-                </Button>
+                <div className="flex gap-2">
+                    <Button
+                        variant="outline"
+                        onClick={() => router.push(`/dashboard/${slug}/routes/active`)}
+                        className="gap-2 min-h-[44px] w-full sm:w-auto"
+                    >
+                        <Truck className="w-4 h-4" />
+                        Ver Rutas Activas -&gt;
+                    </Button>
+                    <Button
+                        onClick={() => setShowCreateRouteDialog(true)}
+                        disabled={selectedOrders.size === 0 || loading}
+                        className="gap-2 min-h-[44px] bg-blue-600 hover:bg-blue-700 w-full sm:w-auto"
+                    >
+                        <Plus className="w-4 h-4" />
+                        Crear Ruta ({selectedOrders.size})
+                    </Button>
+                </div>
             </div>
 
             {/* Notification */}
@@ -463,17 +502,35 @@ export default function RoutesPage() {
                                                 <span>{route.planned_date}</span>
                                             </div>
                                         </div>
-                                        <Button
-                                            variant="outline"
-                                            size="sm"
-                                            className="w-full mt-3 gap-2 min-h-[44px]"
-                                            onClick={(e) => {
-                                                e.stopPropagation();
-                                                router.push(`/dashboard/${slug}/routes/${route.id}`);
-                                            }}
-                                        >
-                                            Ver Detalles
-                                        </Button>
+                                        <div className="flex gap-2 mt-3">
+                                            <Button
+                                                variant="outline"
+                                                size="sm"
+                                                className="flex-1 gap-2 min-h-[44px]"
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    router.push(`/dashboard/${slug}/routes/${route.id}`);
+                                                }}
+                                            >
+                                                Ver Detalles
+                                            </Button>
+                                            <Button
+                                                size="sm"
+                                                className="flex-1 gap-2 min-h-[44px] bg-green-600 hover:bg-green-700"
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    handleFinishRoute(route.id);
+                                                }}
+                                                disabled={finishingRouteId === route.id}
+                                            >
+                                                {finishingRouteId === route.id ? (
+                                                    <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                                                ) : (
+                                                    <Check className="w-4 h-4" />
+                                                )}
+                                                Finalizar
+                                            </Button>
+                                        </div>
                                     </CardContent>
                                 </Card>
                             ))}

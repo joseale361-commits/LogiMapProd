@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from 'react';
-import { User, LogOut, Menu, X } from 'lucide-react';
+import { User, LogOut, Menu, X, Package } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { signOutAction } from '@/lib/actions/auth';
@@ -19,6 +19,13 @@ export function CustomerNavbar() {
 
                 {/* Desktop Menu */}
                 <div className="hidden md:flex items-center gap-3">
+                    <Button asChild variant="outline" className="flex items-center gap-2 border-gray-200 hover:bg-gray-50">
+                        <Link href="/shop/orders">
+                            <Package className="w-4 h-4" />
+                            Mis Pedidos
+                        </Link>
+                    </Button>
+
                     <Button asChild variant="outline" className="flex items-center gap-2 border-gray-200 hover:bg-gray-50">
                         <Link href="/shop/profile">
                             <User className="w-4 h-4" />
@@ -49,6 +56,13 @@ export function CustomerNavbar() {
             {/* Mobile Menu */}
             {isMobileMenuOpen && (
                 <div className="md:hidden border-t border-gray-200 bg-gray-50 px-6 py-4 space-y-4 animate-in slide-in-from-top duration-200">
+                    <Button asChild variant="outline" className="w-full justify-start gap-3 bg-white">
+                        <Link href="/shop/orders">
+                            <Package className="w-4 h-4" />
+                            Mis Pedidos
+                        </Link>
+                    </Button>
+
                     <Button asChild variant="outline" className="w-full justify-start gap-3 bg-white">
                         <Link href="/shop/profile">
                             <User className="w-4 h-4" />

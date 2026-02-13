@@ -294,8 +294,9 @@ export async function getApprovedOrdersForRouting(distributorId: string) {
 
     const { data: ordersData, error } = await supabase
         .from('v_orders_with_geojson' as any)
-        .select('*')
+        .select('*', { count: 'exact', head: false })
         .eq('distributor_id', distributorId)
+        .eq('status', 'approved') // Only get approved orders
         .neq('status', 'in_transit'); // Filter out orders already in transit
 
     if (error) {

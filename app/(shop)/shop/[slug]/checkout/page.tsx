@@ -40,6 +40,7 @@ interface DeliverySettings {
     max_radius_km: number;
     delivery_fee: number;
     min_order_amount: number;
+    min_order_value: number;
 }
 
 export default function CheckoutPage() {
@@ -194,20 +195,57 @@ export default function CheckoutPage() {
 
     // Calculate delivery fee based on distance
     const calculateDeliveryFee = useCallback((address: Address | null) => {
-        if (!address || !deliverySettings || !warehouseLocation) {
+        console.log('🧮 CALC DELIVERY FEE:', { address, deliverySettings, warehouseLocation });
+
+        // Destructure with defaults - calculation proceeds even if settings are empty
+        const {
+            free_radius_km = 5,
+            max_radius_km = 10,
+            delivery_fee = 15000,
+            min_order_amount = 0
+        } = deliverySettings || {};
+
+        if (!address || !warehouseLocation) {
+            console.log('❌ CALC FAILED: Missing inputs -', {
+                hasAddress: !!address,
+                hasSettings: !!deliverySettings,
+                hasWarehouse: !!warehouseLocation
+            });
             setDistanceKm(null);
             setDeliveryFee(0);
             setDeliveryStatus(null);
             return;
         }
 
-        // Get address coordinates from location JSONB
-        const locationData = address.location as { lat?: number; lng?: number; latitude?: number; longitude?: number } | null;
-        const addressLat = locationData?.lat ?? locationData?.latitude ?? null;
-        const addressLng = locationData?.lng ?? locationData?.longitude ?? null;
+        // Get address coordinates from location field (PostGIS POINT format or JSONB)
+        let addressLat: number | null = null;
+        let addressLng: number | null = null;
+
+        // First, try to parse as PostGIS POINT format (e.g., "POINT(-74.006 4.7)")
+        if (typeof address.location === 'string') {
+            const parsed = parsePostGISPoint(address.location);
+            if (parsed) {
+                addressLat = parsed.lat;
+                addressLng = parsed.lng;
+            }
+        }
+
+        // If not a string or PostGIS parsing failed, try JSONB format
+        if (addressLat === null) {
+            const locationData = address.location as { lat?: number; lng?: number; latitude?: number; longitude?: number } | null;
+            addressLat = locationData?.lat ?? locationData?.latitude ?? null;
+            addressLng = locationData?.lng ?? locationData?.longitude ?? null;
+        }
+
+        console.log('📍 ADDRESS COORDS:', {
+            rawLocation: address.location,
+            parsedLat: addressLat,
+            parsedLng: addressLng
+        });
 
         if (addressLat === null || addressLng === null) {
             // Address doesn't have coordinates
+            console.warn('⚠️ ADDRESS: No valid coordinates found');
             setDistanceKm(null);
             setDeliveryFee(0);
             setDeliveryStatus(null);
@@ -223,23 +261,25 @@ export default function CheckoutPage() {
         );
         setDistanceKm(distance);
 
+        console.log('✅ DISTANCE CALCULATED:', { distance, maxRadius: max_radius_km, freeRadius: free_radius_km });
+
         // Case A: Too far - outside maximum radius
-        if (deliverySettings.max_radius_km > 0 && distance > deliverySettings.max_radius_km) {
+        if (max_radius_km > 0 && distance > max_radius_km) {
             setDeliveryStatus('too_far');
             setDeliveryFee(0);
             return;
         }
 
         // Case C: Minimum order not met
-        if (subtotal < deliverySettings.min_order_amount) {
+        if (subtotal < min_order_amount) {
             setDeliveryStatus('min_order');
             setDeliveryFee(0);
             return;
         }
 
         // Case B: Distance fee applies
-        if (deliverySettings.free_radius_km > 0 && distance > deliverySettings.free_radius_km) {
-            setDeliveryFee(deliverySettings.delivery_fee);
+        if (free_radius_km > 0 && distance > free_radius_km) {
+            setDeliveryFee(delivery_fee);
         } else {
             setDeliveryFee(0);
         }
@@ -249,6 +289,15 @@ export default function CheckoutPage() {
 
     // Effect to calculate delivery fee when address changes
     useEffect(() => {
+        // DEBUG: Log calculation inputs
+        console.log('📐 CALC DEBUG:', {
+            warehouse: warehouseLocation,
+            user: selectedAddressId && addresses.length > 0
+                ? addresses.find(a => a.id === selectedAddressId)
+                : null,
+            settings: deliverySettings
+        });
+
         if (selectedAddressId && addresses.length > 0) {
             const selectedAddress = addresses.find(a => a.id === selectedAddressId);
             calculateDeliveryFee(selectedAddress || null);
@@ -266,30 +315,60 @@ export default function CheckoutPage() {
         const fetchDistributorSettings = async () => {
             const supabase = createClient();
 
-            const { data: distributor } = await supabase
-                .from('distributors')
-                .select('location, delivery_settings')
-                .eq('id', distributorId)
-                .single();
+            // Fetch location from v_distributor_settings view (has GeoJSON)
+            // and settings from distributors table
+            const [locationResult, settingsResult] = await Promise.all([
+                supabase
+                    .from('v_distributor_settings')
+                    .select('location_json')
+                    .eq('id', distributorId)
+                    .single(),
+                supabase
+                    .from('distributors')
+                    .select('settings')
+                    .eq('id', distributorId)
+                    .single()
+            ]);
 
-            if (distributor) {
-                // Use type assertion since these fields exist in DB but not in TypeScript types yet
-                const distData = distributor as { location?: string; delivery_settings?: any };
+            const locationData = locationResult.data as { location_json?: { coordinates?: [number, number] } } | null;
+            const settingsData = settingsResult.data as { settings?: any } | null;
 
-                // Parse warehouse location from PostGIS format
-                const warehouseLoc = parsePostGISPoint(distData.location);
-                if (warehouseLoc) {
-                    setWarehouseLocation(warehouseLoc);
-                }
+            // DEBUG: Log raw distributor data
+            console.log('📍 WAREHOUSE DEBUG:', {
+                rawLocationJson: locationData?.location_json,
+                rawSettings: settingsData?.settings
+            });
 
-                // Parse delivery settings
-                if (distData.delivery_settings) {
-                    const settings = typeof distData.delivery_settings === 'string'
-                        ? JSON.parse(distData.delivery_settings)
-                        : distData.delivery_settings as DeliverySettings;
-                    setDeliverySettings(settings);
-                }
+            // Parse warehouse location from GeoJSON (coordinates is [lng, lat])
+            if (locationData?.location_json?.coordinates) {
+                const [lng, lat] = locationData.location_json.coordinates;
+                setWarehouseLocation({ lat, lng });
+            } else {
+                console.warn('⚠️ WAREHOUSE: No valid coordinates found in location_json:', locationData?.location_json);
             }
+
+            // Parse delivery settings from settings JSON
+            // Check if delivery_rules is nested inside settings or if settings is flat
+            const rawSettings = settingsData?.settings;
+            let parsedSettings: Partial<DeliverySettings> = {};
+
+            if (rawSettings) {
+                const settings = typeof rawSettings === 'string' ? JSON.parse(rawSettings) : rawSettings;
+                // Check for nested delivery_rules or flat structure
+                parsedSettings = settings.delivery_rules || settings;
+            }
+
+            // Apply defaults if settings are missing/empty
+            const finalSettings: DeliverySettings = {
+                free_radius_km: parsedSettings.free_radius_km ?? 5,
+                max_radius_km: parsedSettings.max_radius_km ?? 10,
+                delivery_fee: parsedSettings.delivery_fee ?? 15000,
+                min_order_amount: parsedSettings.min_order_amount ?? 0,
+                min_order_value: parsedSettings.min_order_value ?? 0
+            };
+
+            setDeliverySettings(finalSettings);
+            console.log('✅ SETTINGS PARSED:', finalSettings);
         };
 
         fetchDistributorSettings();
@@ -334,6 +413,12 @@ export default function CheckoutPage() {
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setError(null);
+
+        // Check minimum order value
+        if (isBelowMinimum) {
+            setError(`El pedido mínimo es de ${formatPrice(minOrder)}`);
+            return;
+        }
 
         // Validation for POS mode
         if ((userRole === 'admin' || userRole === 'staff') && !selectedCustomerId) {
@@ -419,6 +504,10 @@ export default function CheckoutPage() {
             setIsSubmitting(false);
         }
     };
+
+    // Calculate minimum order value with fallback
+    const minOrder = deliverySettings?.min_order_value || 0;
+    const isBelowMinimum = minOrder > 0 && subtotal < minOrder;
 
     // Check if delivery is disabled
     const isDeliveryDisabled = deliveryType === 'delivery' && (
@@ -852,13 +941,18 @@ export default function CheckoutPage() {
                                     </div>
 
                                     {/* Submit Button */}
+                                    {isBelowMinimum && (
+                                        <div className="text-sm text-red-600 text-center p-3 bg-red-50 border border-red-200 rounded-lg">
+                                            ⚠️ El pedido mínimo es de {formatPrice(minOrder)}
+                                        </div>
+                                    )}
                                     <Button
                                         type="submit"
                                         className="w-full"
                                         size="lg"
-                                        disabled={isSubmitting || (deliveryType === 'delivery' && isDeliveryDisabled) || (deliveryType === 'pickup' && !pickupTime)}
+                                        disabled={isSubmitting || isBelowMinimum || (deliveryType === 'delivery' && isDeliveryDisabled) || (deliveryType === 'pickup' && !pickupTime)}
                                     >
-                                        {isSubmitting ? 'Procesando...' : 'Enviar Pedido'}
+                                        {isSubmitting ? 'Procesando...' : 'Confirmar Pedido'}
                                     </Button>
 
                                     {error && (

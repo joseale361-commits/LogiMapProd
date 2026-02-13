@@ -149,7 +149,8 @@ export async function createRouteWithStops(...) {
  */
 export async function approveOrder(
     orderId: string,
-    userId: string
+    userId: string,
+    invoiceNumber?: string
 ): Promise<{ success: boolean; error?: string; order?: any }> {
     try {
         // Fallback to manual update if RPC is missing or different
@@ -159,6 +160,7 @@ export async function approveOrder(
                 status: 'approved',
                 approved_at: new Date().toISOString(),
                 approved_by: userId,
+                invoice_number: invoiceNumber || null,
                 updated_at: new Date().toISOString()
             })
             .eq('id', orderId)
